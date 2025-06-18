@@ -10,23 +10,29 @@
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     .container { display: flex; height: 100vh; }
     .left, .right { width: 50%; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-    .left { background: #f0f0f0; border-right: 1px solid #ccc; }
+    .left { background: #f0f0f0; border-right: 1px solid #ccc; position: relative; }
     .right { background: #fff; position: relative; }
     .drop-zone { border: 1px dashed #aaa; width: 100%; height: 800px; position: relative; background: #fff; }
     .draggable, .resizable-wrapper, .text-field { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
     .resizable-wrapper { resize: both; overflow: hidden; border: 1px dashed #555; }
     .resizable-wrapper img { width: 100%; height: 100%; pointer-events: none; }
     .text-field[contenteditable] { outline: none; }
-    .field-controls { position: absolute; top: -20px; right: 0; background: #fff; border: 1px solid #ccc; padding: 2px; z-index: 10; }
-    .field-controls input[type=number] { width: 40px; }
-    .delete-btn { color: red; cursor: pointer; margin-left: 5px; }
+    .toolbar { position: absolute; top: 0; left: 0; width: 100%; background: #e0e0e0; padding: 5px; display: flex; gap: 10px; z-index: 1000; }
     canvas { display: none; }
     #refreshPreview { position: absolute; top: 10px; right: 20px; z-index: 10; }
+    #previewFrame { width: 100%; height: 85%; border: 1px solid #ccc; background: white; aspect-ratio: 210 / 297; }
   </style>
 </head>
 <body>
 <div class="container">
   <div class="left">
+    <div class="toolbar" id="toolbar" style="display:none">
+      <label for="fontSize">Tamaño:</label>
+      <input type="number" id="fontSize" min="6" max="72" value="12">
+      <label><input type="checkbox" id="boldToggle"> Negrita</label>
+      <button onclick="removeSelected()">Eliminar</button>
+    </div>
+
     <h2>Diseño PDF</h2>
     <label>Subir archivo Excel:</label>
     <input type="file" id="excelFile" accept=".xlsx" /><br><br>
@@ -44,7 +50,7 @@
   <div class="right">
     <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
     <h2 style="padding-top: 40px;">Previsualización</h2>
-    <iframe id="previewFrame" style="width:100%; height:85%; border:1px solid #ccc;"></iframe>
+    <iframe id="previewFrame"></iframe>
   </div>
 </div>
 
@@ -53,6 +59,7 @@
 <script>
   let excelData = [];
   let logoData = null;
+  let selectedElement = null;
   const PX_TO_MM = 0.2646;
 
   document.getElementById("excelFile").addEventListener("change", function(evt) {
@@ -80,10 +87,6 @@
     });
   }
 
-  function normalizeFieldName(name) {
-    return name.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, "");
-  }
-
   function addDraggableField(field) {
     const div = document.createElement("div");
     div.className = "draggable";
@@ -93,16 +96,7 @@
     div.style.left = "10px";
     div.style.top = "10px";
     div.textContent = `{{${field}}}`;
-
-    const controls = document.createElement("div");
-    controls.className = "field-controls";
-    controls.innerHTML = `
-      <input type="number" value="12" min="6" max="36" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
-      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
-      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
-    `;
-
-    div.appendChild(controls);
+    div.onclick = () => selectElement(div);
     document.getElementById("designArea").appendChild(div);
     makeDraggable(div);
   }
@@ -116,24 +110,38 @@
     div.style.left = "10px";
     div.style.top = "10px";
     div.innerText = "Texto libre";
-
-    const controls = document.createElement("div");
-    controls.className = "field-controls";
-    controls.innerHTML = `
-      <input type="number" value="12" min="6" max="36" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
-      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
-      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
-    `;
-
-    div.appendChild(controls);
+    div.onclick = () => selectElement(div);
     document.getElementById("designArea").appendChild(div);
     makeDraggable(div);
+  }
+
+  function selectElement(el) {
+    selectedElement = el;
+    document.getElementById("toolbar").style.display = "flex";
+    document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
+    document.getElementById("boldToggle").checked = el.getAttribute("data-bold") === "true";
+  }
+
+  document.getElementById("fontSize").addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-size", this.value);
+  });
+
+  document.getElementById("boldToggle").addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-bold", this.checked);
+  });
+
+  function removeSelected() {
+    if (selectedElement) {
+      selectedElement.remove();
+      selectedElement = null;
+      document.getElementById("toolbar").style.display = "none";
+    }
   }
 
   function makeDraggable(el) {
     let offsetX, offsetY;
     el.onmousedown = function(e) {
-      if (e.target.closest('.field-controls')) return;
+      if (e.target.closest('.toolbar')) return;
       offsetX = e.clientX - el.offsetLeft;
       offsetY = e.clientY - el.offsetTop;
       document.onmousemove = function(e) {
@@ -187,12 +195,11 @@
         pdf.addImage(img.src, "PNG", x, y, width, height);
       } else if (el.classList.contains("draggable")) {
         const field = el.getAttribute("data-field");
-        const fieldKey = normalizeFieldName(field);
         const fontSize = parseInt(el.getAttribute("data-size"));
         const isBold = el.getAttribute("data-bold") === "true";
         const value = data[field] || "";
 
-        if (fieldKey.includes("codigodebarras")) {
+        if (field.trim().toLowerCase() === "codigo barras") {
           JsBarcode(barcodeCanvas, value, {
             format: "CODE128",
             width: 2,
