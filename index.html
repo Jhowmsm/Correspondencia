@@ -242,7 +242,15 @@
         const imgData = barcodeCanvas.toDataURL("image/png");
         pdf.addImage(imgData, "PNG", x, y, width, height);
       } else {
-        const text = el.innerText || el.textContent;
+        let text = el.innerText || el.textContent;
+        const matches = text.match(/{{(.*?)}}/g);
+        if (matches) {
+          matches.forEach(m => {
+            const key = m.replace(/{{|}}/g, '').trim();
+            const replacement = data[key] || '';
+            text = text.replace(m, replacement);
+          });
+        }
         const fontSize = parseInt(el.getAttribute("data-size")) || 12;
         const font = el.getAttribute("data-font") || "helvetica";
         const isBold = el.getAttribute("data-bold") === "true";
