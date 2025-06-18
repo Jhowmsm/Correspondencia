@@ -125,19 +125,20 @@
           if (el.tagName === "DIV") {
             const field = el.getAttribute("data-field");
             const value = excelData[i][field] || "";
-            pdf.setFontSize(12);
-            pdf.text(`${value}`, x, y);
+
+            if (field.toLowerCase() === "codigo de barras") {
+              JsBarcode("#barcodeCanvas", value, { format: "CODE128", width: 2, height: 40, displayValue: false });
+              const canvas = document.getElementById("barcodeCanvas");
+              const imgData = canvas.toDataURL("image/png");
+              pdf.addImage(imgData, "PNG", x, y, 100, 30);
+            } else {
+              pdf.setFontSize(12);
+              pdf.text(`${value}`, x, y);
+            }
           } else if (el.tagName === "IMG") {
             pdf.addImage(logoData, "PNG", x, y, 40, 20);
           }
         }
-
-        // Código de barras
-        const codigo = excelData[i]['Codigo'] || "";
-        JsBarcode("#barcodeCanvas", codigo, { format: "CODE128", width: 2, height: 40, displayValue: false });
-        const canvas = document.getElementById("barcodeCanvas");
-        const imgData = canvas.toDataURL("image/png");
-        pdf.addImage(imgData, "PNG", 10, 250, 100, 30);
       }
 
       pdf.save("resultado.pdf");
