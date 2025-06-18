@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Diseñador PDF desde Excel</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -47,7 +47,8 @@
   </div>
 </div>
 
-<canvas id="barcodeCanvas" width="300" height="100" style="display:none;"></canvas>
+<canvas id="barcodeCanvas"></canvas>
+
 <script>
   let excelData = [];
   let selectedElement = null;
@@ -87,11 +88,13 @@
       wrapper.style.top = "10px";
       wrapper.style.width = "150px";
       wrapper.style.height = "60px";
+
       const label = document.createElement("div");
       label.textContent = "Codigo barras";
       label.style.textAlign = "center";
       label.style.fontSize = "12px";
       wrapper.appendChild(label);
+
       document.getElementById("designArea").appendChild(wrapper);
       makeDraggable(wrapper);
     } else {
@@ -166,15 +169,12 @@
   function makeDraggable(el) {
     let offsetX, offsetY;
     el.onmousedown = function(e) {
+      if (e.target.closest(".toolbar")) return;
       offsetX = e.clientX - el.offsetLeft;
       offsetY = e.clientY - el.offsetTop;
       document.onmousemove = function(e) {
-        let x = e.clientX - offsetX;
-        let y = e.clientY - offsetY;
-        const maxX = document.getElementById("designArea").offsetWidth - el.offsetWidth;
-        const maxY = document.getElementById("designArea").offsetHeight - el.offsetHeight;
-        el.style.left = Math.max(0, Math.min(x, maxX)) + "px";
-        el.style.top = Math.max(0, Math.min(y, maxY)) + "px";
+        el.style.left = e.clientX - offsetX + "px";
+        el.style.top = e.clientY - offsetY + "px";
       };
       document.onmouseup = function() {
         document.onmousemove = null;
@@ -195,11 +195,10 @@
       wrapper.className = "resizable-wrapper";
       wrapper.style.left = "10px";
       wrapper.style.top = "10px";
-      wrapper.style.width = "150px";
+      wrapper.style.width = "100px";
+      wrapper.style.height = "50px";
       const img = document.createElement("img");
       img.src = e.target.result;
-      img.style.width = "100%";
-      img.style.height = "auto";
       wrapper.appendChild(img);
       document.getElementById("designArea").appendChild(wrapper);
       makeDraggable(wrapper);
@@ -208,12 +207,8 @@
   });
 
   function renderPDF(pdf, data) {
-    const topMargin = parseInt(document.getElementById("marginTop").value || 0);
-    const leftMargin = parseInt(document.getElementById("marginLeft").value || 0);
     const elements = Array.from(document.getElementById("designArea").children);
     const barcodeCanvas = document.getElementById("barcodeCanvas");
-    const ctx = barcodeCanvas.getContext("2d");
-    ctx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
 
     for (const el of elements) {
       const x = parseInt(el.style.left) * PX_TO_MM;
@@ -240,8 +235,8 @@
         const matches = text.match(/{{(.*?)}}/g);
         if (matches) {
           matches.forEach(m => {
-            const key = m.replace(/{{|}}/g, "").trim();
-            const replacement = data[key] || "";
+            const key = m.replace(/{{|}}/g, '').trim();
+            const replacement = data[key] || '';
             text = text.replace(m, replacement);
           });
         }
@@ -257,8 +252,7 @@
 
         pdf.setFont(font, style);
         pdf.setFontSize(fontSize);
-        pdf.text(text, x + defaultMargins.left, y + defaultMargins.top);
-        pdf.addImage(img.src, "PNG", x + defaultMargins.left, y + defaultMargins.top, width, height);
+        pdf.text(text, x, y);
         if (isUnderline) {
           const textWidth = pdf.getTextWidth(text);
           pdf.setLineWidth(0.5);
