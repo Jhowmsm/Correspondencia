@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Diseñador PDF desde Excel</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -13,9 +13,12 @@
     .left { background: #f0f0f0; border-right: 1px solid #ccc; }
     .right { background: #fff; position: relative; }
     .drop-zone { border: 1px dashed #aaa; width: 100%; height: 800px; position: relative; background: #fff; }
-    .draggable { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
-    .resizable-wrapper { position: absolute; resize: both; overflow: hidden; border: 1px dashed #555; }
+    .draggable, .resizable-wrapper { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
+    .resizable-wrapper { resize: both; overflow: hidden; border: 1px dashed #555; }
     .resizable-wrapper img { width: 100%; height: 100%; pointer-events: none; }
+    .field-controls { position: absolute; top: -20px; right: 0; background: #fff; border: 1px solid #ccc; padding: 2px; z-index: 10; }
+    .field-controls input[type=number] { width: 40px; }
+    .delete-btn { color: red; cursor: pointer; margin-left: 5px; }
     canvas { display: none; }
     #refreshPreview { position: absolute; top: 10px; right: 20px; z-index: 10; }
   </style>
@@ -33,6 +36,7 @@
 
     <h4>Diseña tu layout:</h4>
     <div id="designArea" class="drop-zone"></div>
+    <button onclick="generarPDFCompleto()" style="margin-top: 20px;">📄 Generar PDF completo</button>
   </div>
 
   <div class="right">
@@ -47,7 +51,6 @@
 <script>
   let excelData = [];
   let logoData = null;
-
   const PX_TO_MM = 0.2646;
 
   document.getElementById("excelFile").addEventListener("change", function(evt) {
@@ -75,13 +78,25 @@
     });
   }
 
-  function addDraggableField(text) {
+  function addDraggableField(field) {
     const div = document.createElement("div");
     div.className = "draggable";
-    div.textContent = `{{${text}}}`;
-    div.setAttribute("data-field", text);
+    div.setAttribute("data-field", field);
+    div.setAttribute("data-size", "12");
+    div.setAttribute("data-bold", "false");
     div.style.left = "10px";
     div.style.top = "10px";
+    div.textContent = `{{${field}}}`;
+
+    const controls = document.createElement("div");
+    controls.className = "field-controls";
+    controls.innerHTML = `
+      <input type="number" value="12" min="6" max="36" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
+      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
+      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
+    `;
+
+    div.appendChild(controls);
     document.getElementById("designArea").appendChild(div);
     makeDraggable(div);
   }
@@ -89,7 +104,7 @@
   function makeDraggable(el) {
     let offsetX, offsetY;
     el.onmousedown = function(e) {
-      if (e.target !== el) return;
+      if (e.target.closest('.field-controls')) return;
       offsetX = e.clientX - el.offsetLeft;
       offsetY = e.clientY - el.offsetTop;
       document.onmousemove = function(e) {
@@ -128,14 +143,9 @@
     reader.readAsDataURL(file);
   });
 
-  function generarPrevisualizacion() {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
-    const designArea = document.getElementById("designArea");
-    const elements = Array.from(designArea.children);
+  function renderPDF(pdf, data) {
+    const elements = Array.from(document.getElementById("designArea").children);
     const barcodeCanvas = document.getElementById("barcodeCanvas");
-
-    const data = excelData[0] || {};
 
     for (const el of elements) {
       const x = parseInt(el.style.left) * PX_TO_MM;
@@ -148,6 +158,8 @@
         pdf.addImage(img.src, "PNG", x, y, width, height);
       } else if (el.classList.contains("draggable")) {
         const field = el.getAttribute("data-field");
+        const fontSize = parseInt(el.getAttribute("data-size"));
+        const isBold = el.getAttribute("data-bold") === "true";
         const value = data[field] || "";
 
         if (field.toLowerCase() === "codigo de barras") {
@@ -160,15 +172,32 @@
           const imgData = barcodeCanvas.toDataURL("image/png");
           pdf.addImage(imgData, "PNG", x, y, width, height);
         } else {
-          pdf.setFontSize(12);
+          pdf.setFont("helvetica", isBold ? "bold" : "normal");
+          pdf.setFontSize(fontSize);
           pdf.text(`${value}`, x, y);
         }
       }
     }
+  }
 
+  function generarPrevisualizacion() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    const data = excelData[0] || {};
+    renderPDF(pdf, data);
     const blob = pdf.output("blob");
     const url = URL.createObjectURL(blob);
     document.getElementById("previewFrame").src = url;
+  }
+
+  function generarPDFCompleto() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    for (let i = 0; i < excelData.length; i++) {
+      if (i > 0) pdf.addPage();
+      renderPDF(pdf, excelData[i]);
+    }
+    pdf.save("resultado.pdf");
   }
 </script>
 </body>
