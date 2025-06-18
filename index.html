@@ -13,14 +13,17 @@
     .left { background: #f0f0f0; border-right: 1px solid #ccc; position: relative; }
     .right { background: #fff; position: relative; }
     .drop-zone { border: 1px dashed #aaa; width: 100%; height: 800px; position: relative; background: #fff; }
-    .draggable, .text-field, .barcode-wrapper { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; resize: both; overflow: hidden; }
+    .draggable, .text-field { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
+    .resizable-wrapper, .barcode-wrapper { position: absolute; resize: both; overflow: hidden; border: 1px dashed #555; }
+    .resizable-wrapper img, .barcode-wrapper img { width: 100%; height: 100%; pointer-events: none; }
     .text-field[contenteditable] { outline: none; }
-    .field-controls { margin-top: 5px; background: #fff; border-top: 1px solid #ccc; padding-top: 2px; display: flex; gap: 5px; align-items: center; font-size: 12px; }
-    .field-controls input[type=number] { width: 40px; }
-    .delete-btn { color: red; cursor: pointer; }
     canvas { display: none; }
     #refreshPreview { position: absolute; top: 10px; right: 20px; z-index: 10; }
     #previewFrame { width: 100%; height: 85%; border: 1px solid #ccc; background: white; aspect-ratio: 210 / 297; }
+    .toolbar { display: flex; gap: 10px; align-items: center; padding: 10px; background: #eaeaea; margin-top: 10px; }
+    .toolbar select, .toolbar input[type=number] { padding: 2px; }
+    .toolbar button { padding: 4px 8px; cursor: pointer; }
+    .toolbar button.active { background: #ccc; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -36,6 +39,21 @@
     <input type="file" id="logoFile" accept="image/*" style="display: none;" />
 
     <h4>Diseña tu layout:</h4>
+    <div class="toolbar">
+      <label>Tamaño: <input type="number" id="fontSize" value="12" min="6" max="72"></label>
+      <label>Fuente:
+        <select id="fontFamily">
+          <option value="helvetica">Helvetica</option>
+          <option value="courier">Courier</option>
+          <option value="times">Times</option>
+        </select>
+      </label>
+      <button id="boldBtn">B</button>
+      <button id="italicBtn"><i>I</i></button>
+      <button id="underlineBtn"><u>U</u></button>
+      <button onclick="removeSelected()">Eliminar campo</button>
+    </div>
+
     <div id="designArea" class="drop-zone"></div>
     <button onclick="generarPDFCompleto()" style="margin-top: 20px;">📄 Generar PDF completo</button>
   </div>
@@ -51,6 +69,7 @@
 
 <script>
   let excelData = [];
+  let selectedElement = null;
   const PX_TO_MM = 0.2646;
 
   document.getElementById("excelFile").addEventListener("change", function(evt) {
@@ -79,65 +98,94 @@
   }
 
   function addDraggableField(field) {
-    const wrapper = document.createElement("div");
-    wrapper.className = field.toLowerCase() === "codigo barras" ? "barcode-wrapper" : "draggable";
-    wrapper.setAttribute("data-field", field);
-    wrapper.setAttribute("data-size", "12");
-    wrapper.setAttribute("data-bold", "false");
-    wrapper.style.left = "10px";
-    wrapper.style.top = "10px";
-    wrapper.style.width = "120px";
-    wrapper.style.height = "30px";
-
-    const label = document.createElement("div");
-    label.textContent = `{{${field}}}`;
-    wrapper.appendChild(label);
-
-    const controls = document.createElement("div");
-    controls.className = "field-controls";
-    controls.innerHTML = `
-      <input type="number" value="12" min="6" max="72" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
-      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
-      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
-    `;
-    wrapper.appendChild(controls);
-
-    document.getElementById("designArea").appendChild(wrapper);
-    makeDraggable(wrapper);
+    if (field.toLowerCase() === "codigo barras") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "barcode-wrapper";
+      wrapper.setAttribute("data-field", field);
+      wrapper.style.left = "10px";
+      wrapper.style.top = "10px";
+      wrapper.style.width = "150px";
+      wrapper.style.height = "60px";
+      document.getElementById("designArea").appendChild(wrapper);
+      makeDraggable(wrapper);
+    } else {
+      const div = document.createElement("div");
+      div.className = "draggable";
+      div.setAttribute("data-field", field);
+      div.setAttribute("data-size", "12");
+      div.setAttribute("data-font", "helvetica");
+      div.setAttribute("data-bold", "false");
+      div.setAttribute("data-italic", "false");
+      div.setAttribute("data-underline", "false");
+      div.textContent = `{{${field}}}`;
+      div.style.left = "10px";
+      div.style.top = "10px";
+      div.onclick = () => selectElement(div);
+      document.getElementById("designArea").appendChild(div);
+      makeDraggable(div);
+    }
   }
 
   function addTextField() {
     const div = document.createElement("div");
     div.className = "text-field";
-    div.setAttribute("data-size", "12");
-    div.setAttribute("data-bold", "false");
     div.contentEditable = true;
+    div.setAttribute("data-size", "12");
+    div.setAttribute("data-font", "helvetica");
+    div.setAttribute("data-bold", "false");
+    div.setAttribute("data-italic", "false");
+    div.setAttribute("data-underline", "false");
+    div.innerText = "Texto libre";
     div.style.left = "10px";
     div.style.top = "10px";
-    div.innerText = "Texto libre";
-
-    const controls = document.createElement("div");
-    controls.className = "field-controls";
-    controls.innerHTML = `
-      <input type="number" value="12" min="6" max="72" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
-      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
-      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
-    `;
-    div.appendChild(controls);
-
+    div.onclick = () => selectElement(div);
     document.getElementById("designArea").appendChild(div);
     makeDraggable(div);
+  }
+
+  function selectElement(el) {
+    selectedElement = el;
+    document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
+    document.getElementById("fontFamily").value = el.getAttribute("data-font") || "helvetica";
+    document.getElementById("boldBtn").classList.toggle("active", el.getAttribute("data-bold") === "true");
+    document.getElementById("italicBtn").classList.toggle("active", el.getAttribute("data-italic") === "true");
+    document.getElementById("underlineBtn").classList.toggle("active", el.getAttribute("data-underline") === "true");
+  }
+
+  document.getElementById("fontSize").addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-size", this.value);
+  });
+
+  document.getElementById("fontFamily").addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-font", this.value);
+  });
+
+  ["bold", "italic", "underline"].forEach(type => {
+    document.getElementById(type + "Btn").addEventListener("click", function() {
+      if (selectedElement) {
+        const current = selectedElement.getAttribute("data-" + type) === "true";
+        selectedElement.setAttribute("data-" + type, (!current).toString());
+        this.classList.toggle("active", !current);
+      }
+    });
+  });
+
+  function removeSelected() {
+    if (selectedElement) {
+      selectedElement.remove();
+      selectedElement = null;
+    }
   }
 
   function makeDraggable(el) {
     let offsetX, offsetY;
     el.onmousedown = function(e) {
-      if (e.target.closest('.field-controls')) return;
+      if (e.target.closest(".toolbar")) return;
       offsetX = e.clientX - el.offsetLeft;
       offsetY = e.clientY - el.offsetTop;
       document.onmousemove = function(e) {
-        el.style.left = e.clientX - offsetX + 'px';
-        el.style.top = e.clientY - offsetY + 'px';
+        el.style.left = e.clientX - offsetX + "px";
+        el.style.top = e.clientY - offsetY + "px";
       };
       document.onmouseup = function() {
         document.onmousemove = null;
@@ -160,7 +208,6 @@
       wrapper.style.top = "10px";
       wrapper.style.width = "100px";
       wrapper.style.height = "50px";
-
       const img = document.createElement("img");
       img.src = e.target.result;
       wrapper.appendChild(img);
@@ -194,21 +241,26 @@
         });
         const imgData = barcodeCanvas.toDataURL("image/png");
         pdf.addImage(imgData, "PNG", x, y, width, height);
-      } else if (el.classList.contains("draggable")) {
-        const field = el.getAttribute("data-field");
-        const fontSize = parseInt(el.getAttribute("data-size"));
+      } else {
+        const text = el.innerText || el.textContent;
+        const fontSize = parseInt(el.getAttribute("data-size")) || 12;
+        const font = el.getAttribute("data-font") || "helvetica";
         const isBold = el.getAttribute("data-bold") === "true";
-        const value = data[field] || "";
-        pdf.setFont("helvetica", isBold ? "bold" : "normal");
-        pdf.setFontSize(fontSize);
-        pdf.text(`${value}`, x, y);
-      } else if (el.classList.contains("text-field")) {
-        const text = el.innerText.trim();
-        const fontSize = parseInt(el.getAttribute("data-size"));
-        const isBold = el.getAttribute("data-bold") === "true";
-        pdf.setFont("helvetica", isBold ? "bold" : "normal");
+        const isItalic = el.getAttribute("data-italic") === "true";
+        const isUnderline = el.getAttribute("data-underline") === "true";
+        let style = "normal";
+        if (isBold && isItalic) style = "bolditalic";
+        else if (isBold) style = "bold";
+        else if (isItalic) style = "italic";
+
+        pdf.setFont(font, style);
         pdf.setFontSize(fontSize);
         pdf.text(text, x, y);
+        if (isUnderline) {
+          const textWidth = pdf.getTextWidth(text);
+          pdf.setLineWidth(0.5);
+          pdf.line(x, y + 1, x + textWidth, y + 1);
+        }
       }
     }
   }
