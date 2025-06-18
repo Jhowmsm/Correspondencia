@@ -11,12 +11,13 @@
     .container { display: flex; height: 100vh; }
     .left, .right { width: 50%; padding: 20px; box-sizing: border-box; overflow-y: auto; }
     .left { background: #f0f0f0; border-right: 1px solid #ccc; }
-    .right { background: #fff; }
+    .right { background: #fff; position: relative; }
     .drop-zone { border: 1px dashed #aaa; width: 100%; height: 800px; position: relative; background: #fff; }
     .draggable { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
     .resizable-wrapper { position: absolute; resize: both; overflow: hidden; border: 1px dashed #555; }
     .resizable-wrapper img { width: 100%; height: 100%; pointer-events: none; }
     canvas { display: none; }
+    #refreshPreview { position: absolute; top: 10px; right: 20px; z-index: 10; }
   </style>
 </head>
 <body>
@@ -32,19 +33,22 @@
 
     <h4>Diseña tu layout:</h4>
     <div id="designArea" class="drop-zone"></div>
-    <button onclick="generarPDF()" style="margin-top: 20px;">Generar PDF</button>
-    <canvas id="barcodeCanvas"></canvas>
   </div>
 
   <div class="right">
-    <h2>Previsualización</h2>
-    <iframe id="previewFrame" style="width:100%; height:90%; border:1px solid #ccc;"></iframe>
+    <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
+    <h2 style="padding-top: 40px;">Previsualización</h2>
+    <iframe id="previewFrame" style="width:100%; height:85%; border:1px solid #ccc;"></iframe>
   </div>
 </div>
+
+<canvas id="barcodeCanvas"></canvas>
 
 <script>
   let excelData = [];
   let logoData = null;
+
+  const PX_TO_MM = 0.2646;
 
   document.getElementById("excelFile").addEventListener("change", function(evt) {
     const file = evt.target.files[0];
@@ -124,42 +128,40 @@
     reader.readAsDataURL(file);
   });
 
-  async function generarPDF() {
+  function generarPrevisualizacion() {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF();
     const designArea = document.getElementById("designArea");
     const elements = Array.from(designArea.children);
     const barcodeCanvas = document.getElementById("barcodeCanvas");
 
-    for (let i = 0; i < excelData.length; i++) {
-      if (i > 0) pdf.addPage();
+    const data = excelData[0] || {};
 
-      for (const el of elements) {
-        const x = parseInt(el.style.left);
-        const y = parseInt(el.style.top);
-        const width = el.offsetWidth / 4;
-        const height = el.offsetHeight / 4;
+    for (const el of elements) {
+      const x = parseInt(el.style.left) * PX_TO_MM;
+      const y = parseInt(el.style.top) * PX_TO_MM;
+      const width = el.offsetWidth * PX_TO_MM;
+      const height = el.offsetHeight * PX_TO_MM;
 
-        if (el.classList.contains("resizable-wrapper")) {
-          const img = el.querySelector("img");
-          pdf.addImage(img.src, "PNG", x, y, width, height);
-        } else if (el.classList.contains("draggable")) {
-          const field = el.getAttribute("data-field");
-          const value = excelData[i][field] || "";
+      if (el.classList.contains("resizable-wrapper")) {
+        const img = el.querySelector("img");
+        pdf.addImage(img.src, "PNG", x, y, width, height);
+      } else if (el.classList.contains("draggable")) {
+        const field = el.getAttribute("data-field");
+        const value = data[field] || "";
 
-          if (field.toLowerCase() === "codigo de barras") {
-            JsBarcode(barcodeCanvas, value, {
-              format: "CODE128",
-              width: 2,
-              height: 40,
-              displayValue: false
-            });
-            const imgData = barcodeCanvas.toDataURL("image/png");
-            pdf.addImage(imgData, "PNG", x, y, width, height);
-          } else {
-            pdf.setFontSize(12);
-            pdf.text(`${value}`, x, y);
-          }
+        if (field.toLowerCase() === "codigo de barras") {
+          JsBarcode(barcodeCanvas, value, {
+            format: "CODE128",
+            width: 2,
+            height: 40,
+            displayValue: false
+          });
+          const imgData = barcodeCanvas.toDataURL("image/png");
+          pdf.addImage(imgData, "PNG", x, y, width, height);
+        } else {
+          pdf.setFontSize(12);
+          pdf.text(`${value}`, x, y);
         }
       }
     }
