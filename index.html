@@ -34,10 +34,6 @@
       <button id="italicBtn"><i>I</i></button>
       <button id="underlineBtn"><u>U</u></button>
       <button onclick="removeSelected()">Eliminar campo</button>
-      <label>Margen sup: <input type="number" id="marginTop" value="20" min="0"></label>
-      <label>inf: <input type="number" id="marginBottom" value="20" min="0"></label>
-      <label>izq: <input type="number" id="marginLeft" value="20" min="0"></label>
-      <label>der: <input type="number" id="marginRight" value="20" min="0"></label>
     </div>
 
     <div id="designArea" class="drop-zone"></div>
@@ -261,7 +257,8 @@
 
         pdf.setFont(font, style);
         pdf.setFontSize(fontSize);
-        pdf.text(text, x, y);
+        pdf.text(text, x + defaultMargins.left, y + defaultMargins.top);
+        pdf.addImage(img.src, "PNG", x + defaultMargins.left, y + defaultMargins.top, width, height);
         if (isUnderline) {
           const textWidth = pdf.getTextWidth(text);
           pdf.setLineWidth(0.5);
