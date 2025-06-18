@@ -48,45 +48,133 @@
 </div>
 
 <canvas id="barcodeCanvas" width="300" height="100" style="display:none;"></canvas>
-
 <script>
   let excelData = [];
   let selectedElement = null;
   const PX_TO_MM = 0.2646;
 
-  const designArea = document.getElementById("designArea");
-  const areaBounds = designArea.getBoundingClientRect();
+  document.getElementById("excelFile").addEventListener("change", function(evt) {
+    const file = evt.target.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      excelData = XLSX.utils.sheet_to_json(sheet);
+      const headers = Object.keys(excelData[0]);
+      renderFieldButtons(headers);
+    };
+    reader.readAsArrayBuffer(file);
+  });
 
-  function restrictToDesignArea(el) {
-    const parent = designArea;
-    const parentRect = parent.getBoundingClientRect();
+  function renderFieldButtons(headers) {
+    const container = document.getElementById("fieldSelection");
+    container.innerHTML = "<strong>Campos detectados:</strong><br>";
+    headers.forEach(header => {
+      const btn = document.createElement("button");
+      btn.textContent = header;
+      btn.onclick = () => addDraggableField(header);
+      container.appendChild(btn);
+    });
+  }
 
-    let left = parseInt(el.style.left);
-    let top = parseInt(el.style.top);
-    let width = el.offsetWidth;
-    let height = el.offsetHeight;
+  function addDraggableField(field) {
+    if (field.toLowerCase() === "codigo barras") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "barcode-wrapper";
+      wrapper.setAttribute("data-field", field);
+      wrapper.style.left = "10px";
+      wrapper.style.top = "10px";
+      wrapper.style.width = "150px";
+      wrapper.style.height = "60px";
+      const label = document.createElement("div");
+      label.textContent = "Codigo barras";
+      label.style.textAlign = "center";
+      label.style.fontSize = "12px";
+      wrapper.appendChild(label);
+      document.getElementById("designArea").appendChild(wrapper);
+      makeDraggable(wrapper);
+    } else {
+      const div = document.createElement("div");
+      div.className = "draggable";
+      div.setAttribute("data-field", field);
+      div.setAttribute("data-size", "12");
+      div.setAttribute("data-font", "helvetica");
+      div.setAttribute("data-bold", "false");
+      div.setAttribute("data-italic", "false");
+      div.setAttribute("data-underline", "false");
+      div.textContent = `{{${field}}}`;
+      div.style.left = "10px";
+      div.style.top = "10px";
+      div.onclick = () => selectElement(div);
+      document.getElementById("designArea").appendChild(div);
+      makeDraggable(div);
+    }
+  }
 
-    if (left < 0) left = 0;
-    if (top < 0) top = 0;
-    if (left + width > parent.offsetWidth) left = parent.offsetWidth - width;
-    if (top + height > parent.offsetHeight) top = parent.offsetHeight - height;
+  function addTextField() {
+    const div = document.createElement("div");
+    div.className = "text-field";
+    div.contentEditable = true;
+    div.setAttribute("data-size", "12");
+    div.setAttribute("data-font", "helvetica");
+    div.setAttribute("data-bold", "false");
+    div.setAttribute("data-italic", "false");
+    div.setAttribute("data-underline", "false");
+    div.innerText = "Texto libre";
+    div.style.left = "10px";
+    div.style.top = "10px";
+    div.onclick = () => selectElement(div);
+    document.getElementById("designArea").appendChild(div);
+    makeDraggable(div);
+  }
 
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
+  function selectElement(el) {
+    selectedElement = el;
+    document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
+    document.getElementById("fontFamily").value = el.getAttribute("data-font") || "helvetica";
+    document.getElementById("boldBtn").classList.toggle("active", el.getAttribute("data-bold") === "true");
+    document.getElementById("italicBtn").classList.toggle("active", el.getAttribute("data-italic") === "true");
+    document.getElementById("underlineBtn").classList.toggle("active", el.getAttribute("data-underline") === "true");
+  }
+
+  document.getElementById("fontSize").addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-size", this.value);
+  });
+
+  document.getElementById("fontFamily").addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-font", this.value);
+  });
+
+  ["bold", "italic", "underline"].forEach(type => {
+    document.getElementById(type + "Btn").addEventListener("click", function() {
+      if (selectedElement) {
+        const current = selectedElement.getAttribute("data-" + type) === "true";
+        selectedElement.setAttribute("data-" + type, (!current).toString());
+        this.classList.toggle("active", !current);
+      }
+    });
+  });
+
+  function removeSelected() {
+    if (selectedElement) {
+      selectedElement.remove();
+      selectedElement = null;
+    }
   }
 
   function makeDraggable(el) {
     let offsetX, offsetY;
     el.onmousedown = function(e) {
-      if (e.target.closest(".toolbar")) return;
       offsetX = e.clientX - el.offsetLeft;
       offsetY = e.clientY - el.offsetTop;
       document.onmousemove = function(e) {
         let x = e.clientX - offsetX;
         let y = e.clientY - offsetY;
-        el.style.left = x + "px";
-        el.style.top = y + "px";
-        restrictToDesignArea(el);
+        const maxX = document.getElementById("designArea").offsetWidth - el.offsetWidth;
+        const maxY = document.getElementById("designArea").offsetHeight - el.offsetHeight;
+        el.style.left = Math.max(0, Math.min(x, maxX)) + "px";
+        el.style.top = Math.max(0, Math.min(y, maxY)) + "px";
       };
       document.onmouseup = function() {
         document.onmousemove = null;
@@ -108,25 +196,19 @@
       wrapper.style.left = "10px";
       wrapper.style.top = "10px";
       wrapper.style.width = "150px";
-      wrapper.style.height = "auto";
-
       const img = document.createElement("img");
       img.src = e.target.result;
-      img.style.maxWidth = "100%";
+      img.style.width = "100%";
       img.style.height = "auto";
-      img.onload = () => {
-        wrapper.style.height = img.height + "px";
-      };
-
       wrapper.appendChild(img);
-      designArea.appendChild(wrapper);
+      document.getElementById("designArea").appendChild(wrapper);
       makeDraggable(wrapper);
     };
     reader.readAsDataURL(file);
   });
 
   function renderPDF(pdf, data) {
-    const elements = Array.from(designArea.children);
+    const elements = Array.from(document.getElementById("designArea").children);
     const barcodeCanvas = document.getElementById("barcodeCanvas");
     const ctx = barcodeCanvas.getContext("2d");
     ctx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
@@ -156,8 +238,8 @@
         const matches = text.match(/{{(.*?)}}/g);
         if (matches) {
           matches.forEach(m => {
-            const key = m.replace(/{{|}}/g, '').trim();
-            const replacement = data[key] || '';
+            const key = m.replace(/{{|}}/g, "").trim();
+            const replacement = data[key] || "";
             text = text.replace(m, replacement);
           });
         }
@@ -181,6 +263,26 @@
         }
       }
     }
+  }
+
+  function generarPrevisualizacion() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    const data = excelData[0] || {};
+    renderPDF(pdf, data);
+    const blob = pdf.output("blob");
+    const url = URL.createObjectURL(blob);
+    document.getElementById("previewFrame").src = url;
+  }
+
+  function generarPDFCompleto() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    for (let i = 0; i < excelData.length; i++) {
+      if (i > 0) pdf.addPage();
+      renderPDF(pdf, excelData[i]);
+    }
+    pdf.save("resultado.pdf");
   }
 </script>
 </body>
