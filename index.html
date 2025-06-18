@@ -13,9 +13,10 @@
     .left { background: #f0f0f0; border-right: 1px solid #ccc; }
     .right { background: #fff; position: relative; }
     .drop-zone { border: 1px dashed #aaa; width: 100%; height: 800px; position: relative; background: #fff; }
-    .draggable, .resizable-wrapper { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
+    .draggable, .resizable-wrapper, .text-field { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
     .resizable-wrapper { resize: both; overflow: hidden; border: 1px dashed #555; }
     .resizable-wrapper img { width: 100%; height: 100%; pointer-events: none; }
+    .text-field[contenteditable] { outline: none; }
     .field-controls { position: absolute; top: -20px; right: 0; background: #fff; border: 1px solid #ccc; padding: 2px; z-index: 10; }
     .field-controls input[type=number] { width: 40px; }
     .delete-btn { color: red; cursor: pointer; margin-left: 5px; }
@@ -32,6 +33,7 @@
 
     <div id="fieldSelection"></div>
     <button onclick="uploadLogo()">Subir Logo</button>
+    <button onclick="addTextField()">Agregar texto libre</button>
     <input type="file" id="logoFile" accept="image/*" style="display: none;" />
 
     <h4>Diseña tu layout:</h4>
@@ -78,6 +80,10 @@
     });
   }
 
+  function normalizeFieldName(name) {
+    return name.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, "");
+  }
+
   function addDraggableField(field) {
     const div = document.createElement("div");
     div.className = "draggable";
@@ -87,6 +93,29 @@
     div.style.left = "10px";
     div.style.top = "10px";
     div.textContent = `{{${field}}}`;
+
+    const controls = document.createElement("div");
+    controls.className = "field-controls";
+    controls.innerHTML = `
+      <input type="number" value="12" min="6" max="36" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
+      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
+      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
+    `;
+
+    div.appendChild(controls);
+    document.getElementById("designArea").appendChild(div);
+    makeDraggable(div);
+  }
+
+  function addTextField() {
+    const div = document.createElement("div");
+    div.className = "text-field";
+    div.setAttribute("data-size", "12");
+    div.setAttribute("data-bold", "false");
+    div.contentEditable = true;
+    div.style.left = "10px";
+    div.style.top = "10px";
+    div.innerText = "Texto libre";
 
     const controls = document.createElement("div");
     controls.className = "field-controls";
@@ -158,11 +187,12 @@
         pdf.addImage(img.src, "PNG", x, y, width, height);
       } else if (el.classList.contains("draggable")) {
         const field = el.getAttribute("data-field");
+        const fieldKey = normalizeFieldName(field);
         const fontSize = parseInt(el.getAttribute("data-size"));
         const isBold = el.getAttribute("data-bold") === "true";
         const value = data[field] || "";
 
-        if (field.toLowerCase() === "codigo de barras") {
+        if (fieldKey.includes("codigodebarras")) {
           JsBarcode(barcodeCanvas, value, {
             format: "CODE128",
             width: 2,
@@ -176,6 +206,13 @@
           pdf.setFontSize(fontSize);
           pdf.text(`${value}`, x, y);
         }
+      } else if (el.classList.contains("text-field")) {
+        const text = el.innerText.trim();
+        const fontSize = parseInt(el.getAttribute("data-size"));
+        const isBold = el.getAttribute("data-bold") === "true";
+        pdf.setFont("helvetica", isBold ? "bold" : "normal");
+        pdf.setFontSize(fontSize);
+        pdf.text(text, x, y);
       }
     }
   }
