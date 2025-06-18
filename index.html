@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Diseñador PDF desde Excel</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -34,6 +34,10 @@
       <button id="italicBtn"><i>I</i></button>
       <button id="underlineBtn"><u>U</u></button>
       <button onclick="removeSelected()">Eliminar campo</button>
+      <label>Margen sup: <input type="number" id="marginTop" value="20" min="0"></label>
+      <label>inf: <input type="number" id="marginBottom" value="20" min="0"></label>
+      <label>izq: <input type="number" id="marginLeft" value="20" min="0"></label>
+      <label>der: <input type="number" id="marginRight" value="20" min="0"></label>
     </div>
 
     <div id="designArea" class="drop-zone"></div>
@@ -208,6 +212,8 @@
   });
 
   function renderPDF(pdf, data) {
+    const topMargin = parseInt(document.getElementById("marginTop").value || 0);
+    const leftMargin = parseInt(document.getElementById("marginLeft").value || 0);
     const elements = Array.from(document.getElementById("designArea").children);
     const barcodeCanvas = document.getElementById("barcodeCanvas");
     const ctx = barcodeCanvas.getContext("2d");
