@@ -13,11 +13,11 @@
     .left { background: #f0f0f0; border-right: 1px solid #ccc; position: relative; }
     .right { background: #fff; position: relative; }
     .drop-zone { border: 1px dashed #aaa; width: 100%; height: 800px; position: relative; background: #fff; }
-    .draggable, .resizable-wrapper, .text-field { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; }
-    .resizable-wrapper { resize: both; overflow: hidden; border: 1px dashed #555; }
-    .resizable-wrapper img { width: 100%; height: 100%; pointer-events: none; }
+    .draggable, .text-field, .barcode-wrapper { position: absolute; cursor: move; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; resize: both; overflow: hidden; }
     .text-field[contenteditable] { outline: none; }
-    .toolbar { position: absolute; top: 0; left: 0; width: 100%; background: #e0e0e0; padding: 5px; display: flex; gap: 10px; z-index: 1000; }
+    .field-controls { margin-top: 5px; background: #fff; border-top: 1px solid #ccc; padding-top: 2px; display: flex; gap: 5px; align-items: center; font-size: 12px; }
+    .field-controls input[type=number] { width: 40px; }
+    .delete-btn { color: red; cursor: pointer; }
     canvas { display: none; }
     #refreshPreview { position: absolute; top: 10px; right: 20px; z-index: 10; }
     #previewFrame { width: 100%; height: 85%; border: 1px solid #ccc; background: white; aspect-ratio: 210 / 297; }
@@ -26,13 +26,6 @@
 <body>
 <div class="container">
   <div class="left">
-    <div class="toolbar" id="toolbar" style="display:none">
-      <label for="fontSize">Tamaño:</label>
-      <input type="number" id="fontSize" min="6" max="72" value="12">
-      <label><input type="checkbox" id="boldToggle"> Negrita</label>
-      <button onclick="removeSelected()">Eliminar</button>
-    </div>
-
     <h2>Diseño PDF</h2>
     <label>Subir archivo Excel:</label>
     <input type="file" id="excelFile" accept=".xlsx" /><br><br>
@@ -58,8 +51,6 @@
 
 <script>
   let excelData = [];
-  let logoData = null;
-  let selectedElement = null;
   const PX_TO_MM = 0.2646;
 
   document.getElementById("excelFile").addEventListener("change", function(evt) {
@@ -88,17 +79,31 @@
   }
 
   function addDraggableField(field) {
-    const div = document.createElement("div");
-    div.className = "draggable";
-    div.setAttribute("data-field", field);
-    div.setAttribute("data-size", "12");
-    div.setAttribute("data-bold", "false");
-    div.style.left = "10px";
-    div.style.top = "10px";
-    div.textContent = `{{${field}}}`;
-    div.onclick = () => selectElement(div);
-    document.getElementById("designArea").appendChild(div);
-    makeDraggable(div);
+    const wrapper = document.createElement("div");
+    wrapper.className = field.toLowerCase() === "codigo barras" ? "barcode-wrapper" : "draggable";
+    wrapper.setAttribute("data-field", field);
+    wrapper.setAttribute("data-size", "12");
+    wrapper.setAttribute("data-bold", "false");
+    wrapper.style.left = "10px";
+    wrapper.style.top = "10px";
+    wrapper.style.width = "120px";
+    wrapper.style.height = "30px";
+
+    const label = document.createElement("div");
+    label.textContent = `{{${field}}}`;
+    wrapper.appendChild(label);
+
+    const controls = document.createElement("div");
+    controls.className = "field-controls";
+    controls.innerHTML = `
+      <input type="number" value="12" min="6" max="72" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
+      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
+      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
+    `;
+    wrapper.appendChild(controls);
+
+    document.getElementById("designArea").appendChild(wrapper);
+    makeDraggable(wrapper);
   }
 
   function addTextField() {
@@ -110,38 +115,24 @@
     div.style.left = "10px";
     div.style.top = "10px";
     div.innerText = "Texto libre";
-    div.onclick = () => selectElement(div);
+
+    const controls = document.createElement("div");
+    controls.className = "field-controls";
+    controls.innerHTML = `
+      <input type="number" value="12" min="6" max="72" onchange="this.parentNode.parentNode.setAttribute('data-size', this.value)">
+      <label><input type="checkbox" onchange="this.parentNode.parentNode.setAttribute('data-bold', this.checked)"> B</label>
+      <span class="delete-btn" onclick="this.parentNode.parentNode.remove()">✖</span>
+    `;
+    div.appendChild(controls);
+
     document.getElementById("designArea").appendChild(div);
     makeDraggable(div);
-  }
-
-  function selectElement(el) {
-    selectedElement = el;
-    document.getElementById("toolbar").style.display = "flex";
-    document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
-    document.getElementById("boldToggle").checked = el.getAttribute("data-bold") === "true";
-  }
-
-  document.getElementById("fontSize").addEventListener("change", function() {
-    if (selectedElement) selectedElement.setAttribute("data-size", this.value);
-  });
-
-  document.getElementById("boldToggle").addEventListener("change", function() {
-    if (selectedElement) selectedElement.setAttribute("data-bold", this.checked);
-  });
-
-  function removeSelected() {
-    if (selectedElement) {
-      selectedElement.remove();
-      selectedElement = null;
-      document.getElementById("toolbar").style.display = "none";
-    }
   }
 
   function makeDraggable(el) {
     let offsetX, offsetY;
     el.onmousedown = function(e) {
-      if (e.target.closest('.toolbar')) return;
+      if (e.target.closest('.field-controls')) return;
       offsetX = e.clientX - el.offsetLeft;
       offsetY = e.clientY - el.offsetTop;
       document.onmousemove = function(e) {
@@ -163,7 +154,6 @@
     const file = evt.target.files[0];
     const reader = new FileReader();
     reader.onload = function(e) {
-      logoData = e.target.result;
       const wrapper = document.createElement("div");
       wrapper.className = "resizable-wrapper";
       wrapper.style.left = "10px";
@@ -172,7 +162,7 @@
       wrapper.style.height = "50px";
 
       const img = document.createElement("img");
-      img.src = logoData;
+      img.src = e.target.result;
       wrapper.appendChild(img);
       document.getElementById("designArea").appendChild(wrapper);
       makeDraggable(wrapper);
@@ -193,26 +183,25 @@
       if (el.classList.contains("resizable-wrapper")) {
         const img = el.querySelector("img");
         pdf.addImage(img.src, "PNG", x, y, width, height);
+      } else if (el.classList.contains("barcode-wrapper")) {
+        const field = el.getAttribute("data-field");
+        const value = data[field] || "";
+        JsBarcode(barcodeCanvas, value, {
+          format: "CODE128",
+          width: 2,
+          height: 40,
+          displayValue: false
+        });
+        const imgData = barcodeCanvas.toDataURL("image/png");
+        pdf.addImage(imgData, "PNG", x, y, width, height);
       } else if (el.classList.contains("draggable")) {
         const field = el.getAttribute("data-field");
         const fontSize = parseInt(el.getAttribute("data-size"));
         const isBold = el.getAttribute("data-bold") === "true";
         const value = data[field] || "";
-
-        if (field.trim().toLowerCase() === "codigo barras") {
-          JsBarcode(barcodeCanvas, value, {
-            format: "CODE128",
-            width: 2,
-            height: 40,
-            displayValue: false
-          });
-          const imgData = barcodeCanvas.toDataURL("image/png");
-          pdf.addImage(imgData, "PNG", x, y, width, height);
-        } else {
-          pdf.setFont("helvetica", isBold ? "bold" : "normal");
-          pdf.setFontSize(fontSize);
-          pdf.text(`${value}`, x, y);
-        }
+        pdf.setFont("helvetica", isBold ? "bold" : "normal");
+        pdf.setFontSize(fontSize);
+        pdf.text(`${value}`, x, y);
       } else if (el.classList.contains("text-field")) {
         const text = el.innerText.trim();
         const fontSize = parseInt(el.getAttribute("data-size"));
