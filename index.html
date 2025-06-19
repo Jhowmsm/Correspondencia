@@ -1,65 +1,148 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Diseñador PDF desde Excel</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    .container { display: flex; height: 100vh; }
+
+    .left, .right {
+      width: 50%;
+      box-sizing: border-box;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .left { background-color: #f8f9fa; border-right: 1px solid #ddd; }
+
+    .toolbar {
+      margin-top: 10px;
+      background: #eaeaea;
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .toolbar label, .toolbar select, .toolbar input, .toolbar button {
+      font-size: 14px;
+    }
+
+    .toolbar button.active {
+      font-weight: bold;
+      background-color: #ccc;
+    }
+
+    #designArea {
+      margin-top: 16px;
+      position: relative;
+      background: white;
+      border: 1px solid #aaa;
+      width: 794px;
+      height: 1123px; /* Tamaño A4 a 96dpi (aproximadamente) */
+      overflow: hidden;
+    }
+
+    .drop-zone {
+      position: relative;
+      background: white;
+    }
+
+    .draggable, .text-field {
+      position: absolute;
+      padding: 4px 8px;
+      cursor: move;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
+
+    .resizable-wrapper, .barcode-wrapper {
+      position: absolute;
+      border: 1px dashed #555;
+      resize: both;
+      overflow: hidden;
+    }
+
+    .barcode-wrapper button {
+      position: absolute;
+      bottom: -18px;
+      left: 0;
+      font-size: 12px;
+      padding: 2px 4px;
+    }
+
+    .resizable-wrapper img, .barcode-wrapper img {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .right iframe {
+      width: 100%;
+      height: 100%;
+      border: 1px solid #ccc;
+      aspect-ratio: 210 / 297;
+      background: white;
+    }
+
+    #refreshPreview {
+      margin-bottom: 10px;
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-  <div class="left">
-    <h2>Diseño PDF</h2>
-    <label>Subir archivo Excel:</label>
-    <input type="file" id="excelFile" accept=".xlsx" /><br><br>
+  <div class="container">
+    <div class="left">
+      <h2>Diseño PDF</h2>
+      <label>Subir archivo Excel:</label>
+      <input type="file" id="excelFile" accept=".xlsx" /><br><br>
 
-    <div id="fieldSelection"></div>
-    <button onclick="uploadLogo()">Subir Logo</button>
-    <button onclick="addTextField()">Agregar texto libre</button>
-    <input type="file" id="logoFile" accept="image/*" style="display: none;" />
+      <div id="fieldSelection"></div>
+      <button onclick="uploadLogo()">Subir Logo</button>
+      <button onclick="addTextField()">Agregar texto libre</button>
+      <input type="file" id="logoFile" accept="image/*" style="display: none;" />
 
-    <h4>Diseña tu layout:</h4>
-    <div class="toolbar">
-      <label>Tamaño: <input type="number" id="fontSize" value="12" min="6" max="72"></label>
-      <label>Fuente:
-        <select id="fontFamily">
-          <option value="helvetica">Helvetica</option>
-          <option value="courier">Courier</option>
-          <option value="times">Times</option>
-        </select>
-      </label>
-      <button id="boldBtn">B</button>
-      <button id="italicBtn"><i>I</i></button>
-      <button id="underlineBtn"><u>U</u></button>
-      <button onclick="removeSelected()">Eliminar campo</button>
-    </div>
-    <div style="margin-top: 10px">
-      <label>Diseños por página:</label>
-      <select id="porPagina">
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3" selected>3</option>
-      </select>
+      <h4>Diseña tu layout:</h4>
+      <div class="toolbar">
+        <label>Tamaño:
+          <input type="number" id="fontSize" value="12" min="6" max="72">
+        </label>
+        <label>Fuente:
+          <select id="fontFamily">
+            <option value="helvetica">Helvetica</option>
+            <option value="courier">Courier</option>
+            <option value="times">Times</option>
+          </select>
+        </label>
+        <button id="boldBtn">B</button>
+        <button id="italicBtn"><i>I</i></button>
+        <button id="underlineBtn"><u>U</u></button>
+        <button onclick="removeSelected()">Eliminar campo</button>
+      </div>
+
+      <div id="designArea" class="drop-zone"></div>
+      <button onclick="generarPDFCompleto()" style="margin-top: 20px;">📄 Generar PDF completo</button>
     </div>
 
-    <div id="designArea" class="drop-zone a4-layout"></div>
-    <button onclick="generarPDFCompleto()" style="margin-top: 20px;">📄 Generar PDF completo</button>
+    <div class="right">
+      <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
+      <h2>Previsualización</h2>
+      <iframe id="previewFrame"></iframe>
+    </div>
   </div>
-  <div class="right">
-    <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
-    <h2 style="padding-top: 40px;">Previsualización</h2>
-    <iframe id="previewFrame"></iframe>
-  </div>
-</div>
 
-<canvas id="barcodeCanvas" width="300" height="100" style="display:none;"></canvas>
-
+  <canvas id="barcodeCanvas" width="300" height="100" style="display:none;"></canvas>
 <script>
 let excelData = [];
 let selectedElement = null;
 const PX_TO_MM = 0.2646;
+const defaultMargins = { top: 20, right: 20, bottom: 20, left: 20 };
 
 document.getElementById("excelFile").addEventListener("change", function(evt) {
   const file = evt.target.files[0];
@@ -85,6 +168,7 @@ function renderFieldButtons(headers) {
     container.appendChild(btn);
   });
 }
+
 function addDraggableField(field) {
   if (field.toLowerCase() === "codigo barras") {
     const wrapper = document.createElement("div");
@@ -95,11 +179,23 @@ function addDraggableField(field) {
     wrapper.style.top = "10px";
     wrapper.style.width = "150px";
     wrapper.style.height = "60px";
+
     const label = document.createElement("div");
     label.textContent = "Código barras";
     label.style.textAlign = "center";
-    label.style.fontSize = "12px";
+    label.style.fontSize = "10px";
     wrapper.appendChild(label);
+
+    const rotateBtn = document.createElement("button");
+    rotateBtn.innerText = "↻";
+    rotateBtn.onclick = (e) => {
+      e.stopPropagation();
+      const current = wrapper.getAttribute("data-rotate") === "true";
+      wrapper.setAttribute("data-rotate", (!current).toString());
+      rotateBtn.classList.toggle("active", !current);
+    };
+    wrapper.appendChild(rotateBtn);
+
     document.getElementById("designArea").appendChild(wrapper);
     makeDraggable(wrapper);
   } else {
@@ -119,6 +215,102 @@ function addDraggableField(field) {
     makeDraggable(div);
   }
 }
+
+function addTextField() {
+  const div = document.createElement("div");
+  div.className = "text-field";
+  div.contentEditable = true;
+  div.setAttribute("data-size", "12");
+  div.setAttribute("data-font", "helvetica");
+  div.setAttribute("data-bold", "false");
+  div.setAttribute("data-italic", "false");
+  div.setAttribute("data-underline", "false");
+  div.innerText = "Texto libre";
+  div.style.left = "10px";
+  div.style.top = "10px";
+  div.onclick = () => selectElement(div);
+  document.getElementById("designArea").appendChild(div);
+  makeDraggable(div);
+}
+
+function selectElement(el) {
+  selectedElement = el;
+  document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
+  document.getElementById("fontFamily").value = el.getAttribute("data-font") || "helvetica";
+  document.getElementById("boldBtn").classList.toggle("active", el.getAttribute("data-bold") === "true");
+  document.getElementById("italicBtn").classList.toggle("active", el.getAttribute("data-italic") === "true");
+  document.getElementById("underlineBtn").classList.toggle("active", el.getAttribute("data-underline") === "true");
+}
+
+["fontSize", "fontFamily"].forEach(id => {
+  document.getElementById(id).addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-" + id.replace("font", "").toLowerCase(), this.value);
+  });
+});
+
+["bold", "italic", "underline"].forEach(type => {
+  document.getElementById(type + "Btn").addEventListener("click", function() {
+    if (selectedElement) {
+      const current = selectedElement.getAttribute("data-" + type) === "true";
+      selectedElement.setAttribute("data-" + type, (!current).toString());
+      this.classList.toggle("active", !current);
+    }
+  });
+});
+
+function removeSelected() {
+  if (selectedElement) {
+    selectedElement.remove();
+    selectedElement = null;
+  }
+}
+
+function makeDraggable(el) {
+  let offsetX, offsetY;
+  el.onmousedown = function(e) {
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    document.onmousemove = function(e) {
+      let x = e.clientX - offsetX;
+      let y = e.clientY - offsetY;
+      const area = document.getElementById("designArea");
+      const maxX = area.offsetWidth - el.offsetWidth;
+      const maxY = area.offsetHeight - el.offsetHeight;
+      el.style.left = Math.max(0, Math.min(x, maxX)) + "px";
+      el.style.top = Math.max(0, Math.min(y, maxY)) + "px";
+    };
+    document.onmouseup = function() {
+      document.onmousemove = null;
+      document.onmouseup = null;
+    };
+  };
+}
+
+function uploadLogo() {
+  document.getElementById("logoFile").click();
+}
+
+document.getElementById("logoFile").addEventListener("change", function(evt) {
+  const file = evt.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "resizable-wrapper";
+    wrapper.style.left = "10px";
+    wrapper.style.top = "10px";
+    wrapper.style.width = "150px";
+    const img = document.createElement("img");
+    img.src = e.target.result;
+    img.style.width = "100%";
+    img.style.height = "auto";
+    wrapper.appendChild(img);
+    document.getElementById("designArea").appendChild(wrapper);
+    makeDraggable(wrapper);
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+<script>
 function renderPDF(pdf, data, offsetY = 0) {
   const elements = Array.from(document.getElementById("designArea").children);
   const barcodeCanvas = document.getElementById("barcodeCanvas");
@@ -126,17 +318,20 @@ function renderPDF(pdf, data, offsetY = 0) {
   ctx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
 
   for (const el of elements) {
-    const x = parseInt(el.style.left) * PX_TO_MM;
-    const y = parseInt(el.style.top) * PX_TO_MM + offsetY;
+    const x = parseInt(el.style.left) * PX_TO_MM + defaultMargins.left;
+    const y = parseInt(el.style.top) * PX_TO_MM + defaultMargins.top + offsetY;
     const width = el.offsetWidth * PX_TO_MM;
     const height = el.offsetHeight * PX_TO_MM;
 
     if (el.classList.contains("resizable-wrapper")) {
       const img = el.querySelector("img");
       pdf.addImage(img.src, "PNG", x, y, width, height);
+
     } else if (el.classList.contains("barcode-wrapper")) {
       const field = el.getAttribute("data-field");
-      let value = (data[field] || "").toString().padStart(8, "0");
+      let value = data[field] || "";
+      value = value.toString().padStart(8, "0");
+      const rotate = el.getAttribute("data-rotate") === "true";
       JsBarcode(barcodeCanvas, value, {
         format: "CODE128",
         width: 2,
@@ -144,12 +339,17 @@ function renderPDF(pdf, data, offsetY = 0) {
         displayValue: false
       });
       const imgData = barcodeCanvas.toDataURL("image/png");
-      const rotated = el.getAttribute("data-rotate") === "true";
-      if (rotated) {
-        pdf.addImage(imgData, "PNG", x, y, height, width, undefined, "FAST", 90);
+
+      if (rotate) {
+        pdf.saveGraphicsState();
+        pdf.translate(x, y);
+        pdf.rotate(90);
+        pdf.addImage(imgData, "PNG", 0, 0, height, width);
+        pdf.restoreGraphicsState();
       } else {
         pdf.addImage(imgData, "PNG", x, y, width, height);
       }
+
     } else {
       let text = el.innerText || el.textContent;
       const matches = text.match(/{{(.*?)}}/g);
@@ -185,8 +385,11 @@ function renderPDF(pdf, data, offsetY = 0) {
 function generarPrevisualizacion() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const data = excelData[0] || {};
-  renderPDF(pdf, data);
+  const maxPerPage = 2; // Cambia a 3 si deseas 3 por página
+  const verticalSpacing = 150; // espacio entre layouts en mm
+  for (let i = 0; i < maxPerPage && i < excelData.length; i++) {
+    renderPDF(pdf, excelData[i], i * verticalSpacing);
+  }
   const blob = pdf.output("blob");
   const url = URL.createObjectURL(blob);
   document.getElementById("previewFrame").src = url;
@@ -195,15 +398,13 @@ function generarPrevisualizacion() {
 function generarPDFCompleto() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const porPagina = parseInt(document.getElementById("porPagina").value);
-  const altoBloque = 297 / porPagina;
+  const maxPerPage = 2;
+  const verticalSpacing = 150;
   for (let i = 0; i < excelData.length; i++) {
-    if (i > 0 && i % porPagina === 0) pdf.addPage();
-    const offsetY = (i % porPagina) * altoBloque;
-    renderPDF(pdf, excelData[i], offsetY);
+    if (i % maxPerPage === 0 && i > 0) pdf.addPage();
+    const offset = (i % maxPerPage) * verticalSpacing;
+    renderPDF(pdf, excelData[i], offset);
   }
   pdf.save("resultado.pdf");
 }
 </script>
-</body>
-</html>
