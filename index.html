@@ -311,7 +311,7 @@ document.getElementById("logoFile").addEventListener("change", function(evt) {
 });
 </script>
 <script>
-function renderPDF(pdf, data) {
+function renderPDF(pdf, data, offsetY = 0) {
   const elements = Array.from(document.getElementById("designArea").children);
   const barcodeCanvas = document.getElementById("barcodeCanvas");
   const ctx = barcodeCanvas.getContext("2d");
@@ -319,7 +319,7 @@ function renderPDF(pdf, data) {
 
   for (const el of elements) {
     const x = parseInt(el.style.left) * PX_TO_MM + defaultMargins.left;
-    const y = parseInt(el.style.top) * PX_TO_MM + defaultMargins.top;
+    const y = parseInt(el.style.top) * PX_TO_MM + defaultMargins.top + offsetY;
     const width = el.offsetWidth * PX_TO_MM;
     const height = el.offsetHeight * PX_TO_MM;
 
@@ -330,8 +330,7 @@ function renderPDF(pdf, data) {
     } else if (el.classList.contains("barcode-wrapper")) {
       const field = el.getAttribute("data-field");
       let value = data[field] || "";
-      value = value.toString().padStart(8, "0"); // Asegura 8 dígitos
-
+      value = value.toString().padStart(8, "0");
       const rotate = el.getAttribute("data-rotate") === "true";
       JsBarcode(barcodeCanvas, value, {
         format: "CODE128",
@@ -343,8 +342,9 @@ function renderPDF(pdf, data) {
 
       if (rotate) {
         pdf.saveGraphicsState();
-        pdf.rotate(90, { origin: [x, y] });
-        pdf.addImage(imgData, "PNG", x, y, height, width); // swap w/h when rotated
+        pdf.translate(x, y);
+        pdf.rotate(90);
+        pdf.addImage(imgData, "PNG", 0, 0, height, width);
         pdf.restoreGraphicsState();
       } else {
         pdf.addImage(imgData, "PNG", x, y, width, height);
@@ -385,8 +385,11 @@ function renderPDF(pdf, data) {
 function generarPrevisualizacion() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const data = excelData[0] || {};
-  renderPDF(pdf, data);
+  const maxPerPage = 2; // Cambia a 3 si deseas 3 por página
+  const verticalSpacing = 150; // espacio entre layouts en mm
+  for (let i = 0; i < maxPerPage && i < excelData.length; i++) {
+    renderPDF(pdf, excelData[i], i * verticalSpacing);
+  }
   const blob = pdf.output("blob");
   const url = URL.createObjectURL(blob);
   document.getElementById("previewFrame").src = url;
@@ -395,9 +398,12 @@ function generarPrevisualizacion() {
 function generarPDFCompleto() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const maxPerPage = 2;
+  const verticalSpacing = 150;
   for (let i = 0; i < excelData.length; i++) {
-    if (i > 0) pdf.addPage();
-    renderPDF(pdf, excelData[i]);
+    if (i % maxPerPage === 0 && i > 0) pdf.addPage();
+    const offset = (i % maxPerPage) * verticalSpacing;
+    renderPDF(pdf, excelData[i], offset);
   }
   pdf.save("resultado.pdf");
 }
