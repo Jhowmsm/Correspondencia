@@ -7,6 +7,94 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    .container { display: flex; height: 100vh; }
+
+    .left, .right {
+      width: 50%;
+      box-sizing: border-box;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .left { background-color: #f8f9fa; border-right: 1px solid #ddd; }
+
+    .toolbar {
+      margin-top: 10px;
+      background: #eaeaea;
+      padding: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .toolbar label, .toolbar select, .toolbar input, .toolbar button {
+      font-size: 14px;
+    }
+
+    .toolbar button.active {
+      font-weight: bold;
+      background-color: #ccc;
+    }
+
+    #designArea {
+      margin-top: 16px;
+      position: relative;
+      background: white;
+      border: 1px solid #aaa;
+      width: 794px;
+      height: 1123px; /* Tamaño A4 a 96dpi (aproximadamente) */
+      overflow: hidden;
+    }
+
+    .drop-zone {
+      position: relative;
+      background: white;
+    }
+
+    .draggable, .text-field {
+      position: absolute;
+      padding: 4px 8px;
+      cursor: move;
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 4px;
+    }
+
+    .resizable-wrapper, .barcode-wrapper {
+      position: absolute;
+      border: 1px dashed #555;
+      resize: both;
+      overflow: hidden;
+    }
+
+    .barcode-wrapper button {
+      position: absolute;
+      bottom: -18px;
+      left: 0;
+      font-size: 12px;
+      padding: 2px 4px;
+    }
+
+    .resizable-wrapper img, .barcode-wrapper img {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .right iframe {
+      width: 100%;
+      height: 100%;
+      border: 1px solid #ccc;
+      aspect-ratio: 210 / 297;
+      background: white;
+    }
+
+    #refreshPreview {
+      margin-bottom: 10px;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -22,7 +110,9 @@
 
       <h4>Diseña tu layout:</h4>
       <div class="toolbar">
-        <label>Tamaño: <input type="number" id="fontSize" value="12" min="6" max="72"></label>
+        <label>Tamaño:
+          <input type="number" id="fontSize" value="12" min="6" max="72">
+        </label>
         <label>Fuente:
           <select id="fontFamily">
             <option value="helvetica">Helvetica</option>
@@ -42,183 +132,273 @@
 
     <div class="right">
       <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
-      <h2 style="padding-top: 40px;">Previsualización</h2>
+      <h2>Previsualización</h2>
       <iframe id="previewFrame"></iframe>
     </div>
   </div>
 
   <canvas id="barcodeCanvas" width="300" height="100" style="display:none;"></canvas>
 <script>
-  let excelData = [];
-  let selectedElement = null;
-  const PX_TO_MM = 0.2646;
-  const defaultMargins = { top: 20, bottom: 20, left: 20, right: 20 };
+let excelData = [];
+let selectedElement = null;
+const PX_TO_MM = 0.2646;
+const defaultMargins = { top: 20, right: 20, bottom: 20, left: 20 };
 
-  document.getElementById("excelFile").addEventListener("change", function(evt) {
-    const file = evt.target.files[0];
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      excelData = XLSX.utils.sheet_to_json(sheet);
-      const headers = Object.keys(excelData[0]);
-      renderFieldButtons(headers);
-    };
-    reader.readAsArrayBuffer(file);
+document.getElementById("excelFile").addEventListener("change", function(evt) {
+  const file = evt.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    excelData = XLSX.utils.sheet_to_json(sheet);
+    const headers = Object.keys(excelData[0]);
+    renderFieldButtons(headers);
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+function renderFieldButtons(headers) {
+  const container = document.getElementById("fieldSelection");
+  container.innerHTML = "<strong>Campos detectados:</strong><br>";
+  headers.forEach(header => {
+    const btn = document.createElement("button");
+    btn.textContent = header;
+    btn.onclick = () => addDraggableField(header);
+    container.appendChild(btn);
   });
+}
 
-  function renderFieldButtons(headers) {
-    const container = document.getElementById("fieldSelection");
-    container.innerHTML = "<strong>Campos detectados:</strong><br>";
-    headers.forEach(header => {
-      const btn = document.createElement("button");
-      btn.textContent = header;
-      btn.onclick = () => addDraggableField(header);
-      container.appendChild(btn);
-    });
+function addDraggableField(field) {
+  if (field.toLowerCase() === "codigo barras") {
+    const wrapper = document.createElement("div");
+    wrapper.className = "barcode-wrapper";
+    wrapper.setAttribute("data-field", field);
+    wrapper.setAttribute("data-rotate", "false");
+    wrapper.style.left = "10px";
+    wrapper.style.top = "10px";
+    wrapper.style.width = "150px";
+    wrapper.style.height = "60px";
+
+    const label = document.createElement("div");
+    label.textContent = "Código barras";
+    label.style.textAlign = "center";
+    label.style.fontSize = "10px";
+    wrapper.appendChild(label);
+
+    const rotateBtn = document.createElement("button");
+    rotateBtn.innerText = "↻";
+    rotateBtn.onclick = (e) => {
+      e.stopPropagation();
+      const current = wrapper.getAttribute("data-rotate") === "true";
+      wrapper.setAttribute("data-rotate", (!current).toString());
+      rotateBtn.classList.toggle("active", !current);
+    };
+    wrapper.appendChild(rotateBtn);
+
+    document.getElementById("designArea").appendChild(wrapper);
+    makeDraggable(wrapper);
+  } else {
+    const div = document.createElement("div");
+    div.className = "draggable";
+    div.setAttribute("data-field", field);
+    div.setAttribute("data-size", "12");
+    div.setAttribute("data-font", "helvetica");
+    div.setAttribute("data-bold", "false");
+    div.setAttribute("data-italic", "false");
+    div.setAttribute("data-underline", "false");
+    div.textContent = `{{${field}}}`;
+    div.style.left = "10px";
+    div.style.top = "10px";
+    div.onclick = () => selectElement(div);
+    document.getElementById("designArea").appendChild(div);
+    makeDraggable(div);
   }
+}
 
-  function addDraggableField(field) {
-    if (field.toLowerCase() === "codigo barras") {
-      const wrapper = document.createElement("div");
-      wrapper.className = "barcode-wrapper";
-      wrapper.setAttribute("data-field", field);
-      wrapper.setAttribute("data-rotate", "false");
-      wrapper.style.left = "10px";
-      wrapper.style.top = "10px";
-      wrapper.style.width = "150px";
-      wrapper.style.height = "60px";
+function addTextField() {
+  const div = document.createElement("div");
+  div.className = "text-field";
+  div.contentEditable = true;
+  div.setAttribute("data-size", "12");
+  div.setAttribute("data-font", "helvetica");
+  div.setAttribute("data-bold", "false");
+  div.setAttribute("data-italic", "false");
+  div.setAttribute("data-underline", "false");
+  div.innerText = "Texto libre";
+  div.style.left = "10px";
+  div.style.top = "10px";
+  div.onclick = () => selectElement(div);
+  document.getElementById("designArea").appendChild(div);
+  makeDraggable(div);
+}
 
-      const label = document.createElement("div");
-      label.textContent = "Codigo barras";
-      label.style.textAlign = "center";
-      label.style.fontSize = "12px";
+function selectElement(el) {
+  selectedElement = el;
+  document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
+  document.getElementById("fontFamily").value = el.getAttribute("data-font") || "helvetica";
+  document.getElementById("boldBtn").classList.toggle("active", el.getAttribute("data-bold") === "true");
+  document.getElementById("italicBtn").classList.toggle("active", el.getAttribute("data-italic") === "true");
+  document.getElementById("underlineBtn").classList.toggle("active", el.getAttribute("data-underline") === "true");
+}
 
-      const rotateBtn = document.createElement("button");
-      rotateBtn.innerText = "↻";
-      rotateBtn.style.display = "block";
-      rotateBtn.onclick = (e) => {
-        e.stopPropagation();
-        const current = wrapper.getAttribute("data-rotate") === "true";
-        wrapper.setAttribute("data-rotate", (!current).toString());
-        rotateBtn.classList.toggle("active", !current);
-      };
+["fontSize", "fontFamily"].forEach(id => {
+  document.getElementById(id).addEventListener("change", function() {
+    if (selectedElement) selectedElement.setAttribute("data-" + id.replace("font", "").toLowerCase(), this.value);
+  });
+});
 
-      wrapper.appendChild(label);
-      wrapper.appendChild(rotateBtn);
-      document.getElementById("designArea").appendChild(wrapper);
-      makeDraggable(wrapper);
-    } else {
-      const div = document.createElement("div");
-      div.className = "draggable";
-      div.setAttribute("data-field", field);
-      div.setAttribute("data-size", "12");
-      div.setAttribute("data-font", "helvetica");
-      div.setAttribute("data-bold", "false");
-      div.setAttribute("data-italic", "false");
-      div.setAttribute("data-underline", "false");
-      div.textContent = `{{${field}}}`;
-      div.style.left = "10px";
-      div.style.top = "10px";
-      div.onclick = () => selectElement(div);
-      document.getElementById("designArea").appendChild(div);
-      makeDraggable(div);
+["bold", "italic", "underline"].forEach(type => {
+  document.getElementById(type + "Btn").addEventListener("click", function() {
+    if (selectedElement) {
+      const current = selectedElement.getAttribute("data-" + type) === "true";
+      selectedElement.setAttribute("data-" + type, (!current).toString());
+      this.classList.toggle("active", !current);
     }
+  });
+});
+
+function removeSelected() {
+  if (selectedElement) {
+    selectedElement.remove();
+    selectedElement = null;
   }
-  function renderPDF(pdf, data) {
-    const elements = Array.from(document.getElementById("designArea").children);
-    const barcodeCanvas = document.getElementById("barcodeCanvas");
-    const ctx = barcodeCanvas.getContext("2d");
-    ctx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
+}
 
-    for (const el of elements) {
-      const x = parseInt(el.style.left) * PX_TO_MM + defaultMargins.left;
-      const y = parseInt(el.style.top) * PX_TO_MM + defaultMargins.top;
-      const width = el.offsetWidth * PX_TO_MM;
-      const height = el.offsetHeight * PX_TO_MM;
+function makeDraggable(el) {
+  let offsetX, offsetY;
+  el.onmousedown = function(e) {
+    offsetX = e.clientX - el.offsetLeft;
+    offsetY = e.clientY - el.offsetTop;
+    document.onmousemove = function(e) {
+      let x = e.clientX - offsetX;
+      let y = e.clientY - offsetY;
+      const area = document.getElementById("designArea");
+      const maxX = area.offsetWidth - el.offsetWidth;
+      const maxY = area.offsetHeight - el.offsetHeight;
+      el.style.left = Math.max(0, Math.min(x, maxX)) + "px";
+      el.style.top = Math.max(0, Math.min(y, maxY)) + "px";
+    };
+    document.onmouseup = function() {
+      document.onmousemove = null;
+      document.onmouseup = null;
+    };
+  };
+}
 
-      if (el.classList.contains("resizable-wrapper")) {
-        const img = el.querySelector("img");
-        pdf.addImage(img.src, "PNG", x, y, width, height);
-      } else if (el.classList.contains("barcode-wrapper")) {
-        const field = el.getAttribute("data-field");
-        let value = data[field] || "";
-        value = value.toString().padStart(8, "0");
+function uploadLogo() {
+  document.getElementById("logoFile").click();
+}
 
-        JsBarcode(barcodeCanvas, value, {
-          format: "CODE128",
-          width: 2,
-          height: 40,
-          displayValue: false
-        });
+document.getElementById("logoFile").addEventListener("change", function(evt) {
+  const file = evt.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "resizable-wrapper";
+    wrapper.style.left = "10px";
+    wrapper.style.top = "10px";
+    wrapper.style.width = "150px";
+    const img = document.createElement("img");
+    img.src = e.target.result;
+    img.style.width = "100%";
+    img.style.height = "auto";
+    wrapper.appendChild(img);
+    document.getElementById("designArea").appendChild(wrapper);
+    makeDraggable(wrapper);
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+<script>
+function renderPDF(pdf, data) {
+  const elements = Array.from(document.getElementById("designArea").children);
+  const barcodeCanvas = document.getElementById("barcodeCanvas");
+  const ctx = barcodeCanvas.getContext("2d");
+  ctx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
 
-        const imgData = barcodeCanvas.toDataURL("image/png");
+  for (const el of elements) {
+    const x = parseInt(el.style.left) * PX_TO_MM + defaultMargins.left;
+    const y = parseInt(el.style.top) * PX_TO_MM + defaultMargins.top;
+    const width = el.offsetWidth * PX_TO_MM;
+    const height = el.offsetHeight * PX_TO_MM;
 
-        const isRotated = el.getAttribute("data-rotate") === "true";
-        if (isRotated) {
-          pdf.saveGraphicsState();
-          pdf.translate(x + width / 2, y + height / 2);
-          pdf.rotate(-90);
-          pdf.addImage(imgData, "PNG", -height / 2, -width / 2, height, width);
-          pdf.restoreGraphicsState();
-        } else {
-          pdf.addImage(imgData, "PNG", x, y, width, height);
-        }
+    if (el.classList.contains("resizable-wrapper")) {
+      const img = el.querySelector("img");
+      pdf.addImage(img.src, "PNG", x, y, width, height);
+
+    } else if (el.classList.contains("barcode-wrapper")) {
+      const field = el.getAttribute("data-field");
+      let value = data[field] || "";
+      value = value.toString().padStart(8, "0"); // Asegura 8 dígitos
+
+      const rotate = el.getAttribute("data-rotate") === "true";
+      JsBarcode(barcodeCanvas, value, {
+        format: "CODE128",
+        width: 2,
+        height: 40,
+        displayValue: false
+      });
+      const imgData = barcodeCanvas.toDataURL("image/png");
+
+      if (rotate) {
+        pdf.saveGraphicsState();
+        pdf.rotate(90, { origin: [x, y] });
+        pdf.addImage(imgData, "PNG", x, y, height, width); // swap w/h when rotated
+        pdf.restoreGraphicsState();
       } else {
-        let text = el.innerText || el.textContent;
-        const matches = text.match(/{{(.*?)}}/g);
-        if (matches) {
-          matches.forEach(m => {
-            const key = m.replace(/{{|}}/g, "").trim();
-            const replacement = data[key] || "";
-            text = text.replace(m, replacement);
-          });
-        }
+        pdf.addImage(imgData, "PNG", x, y, width, height);
+      }
 
-        const fontSize = parseInt(el.getAttribute("data-size")) || 12;
-        const font = el.getAttribute("data-font") || "helvetica";
-        const isBold = el.getAttribute("data-bold") === "true";
-        const isItalic = el.getAttribute("data-italic") === "true";
-        const isUnderline = el.getAttribute("data-underline") === "true";
+    } else {
+      let text = el.innerText || el.textContent;
+      const matches = text.match(/{{(.*?)}}/g);
+      if (matches) {
+        matches.forEach(m => {
+          const key = m.replace(/{{|}}/g, '').trim();
+          const replacement = data[key] || '';
+          text = text.replace(m, replacement);
+        });
+      }
+      const fontSize = parseInt(el.getAttribute("data-size")) || 12;
+      const font = el.getAttribute("data-font") || "helvetica";
+      const isBold = el.getAttribute("data-bold") === "true";
+      const isItalic = el.getAttribute("data-italic") === "true";
+      const isUnderline = el.getAttribute("data-underline") === "true";
+      let style = "normal";
+      if (isBold && isItalic) style = "bolditalic";
+      else if (isBold) style = "bold";
+      else if (isItalic) style = "italic";
 
-        let style = "normal";
-        if (isBold && isItalic) style = "bolditalic";
-        else if (isBold) style = "bold";
-        else if (isItalic) style = "italic";
-
-        pdf.setFont(font, style);
-        pdf.setFontSize(fontSize);
-        pdf.text(text, x, y);
-
-        if (isUnderline) {
-          const textWidth = pdf.getTextWidth(text);
-          pdf.setLineWidth(0.5);
-          pdf.line(x, y + 1, x + textWidth, y + 1);
-        }
+      pdf.setFont(font, style);
+      pdf.setFontSize(fontSize);
+      pdf.text(text, x, y);
+      if (isUnderline) {
+        const textWidth = pdf.getTextWidth(text);
+        pdf.setLineWidth(0.5);
+        pdf.line(x, y + 1, x + textWidth, y + 1);
       }
     }
   }
+}
 
-  function generarPrevisualizacion() {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
-    const data = excelData[0] || {};
-    renderPDF(pdf, data);
-    const blob = pdf.output("blob");
-    const url = URL.createObjectURL(blob);
-    document.getElementById("previewFrame").src = url;
-  }
+function generarPrevisualizacion() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const data = excelData[0] || {};
+  renderPDF(pdf, data);
+  const blob = pdf.output("blob");
+  const url = URL.createObjectURL(blob);
+  document.getElementById("previewFrame").src = url;
+}
 
-  function generarPDFCompleto() {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF();
-    for (let i = 0; i < excelData.length; i++) {
-      if (i > 0) pdf.addPage();
-      renderPDF(pdf, excelData[i]);
-    }
-    pdf.save("resultado.pdf");
+function generarPDFCompleto() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  for (let i = 0; i < excelData.length; i++) {
+    if (i > 0) pdf.addPage();
+    renderPDF(pdf, excelData[i]);
   }
+  pdf.save("resultado.pdf");
+}
 </script>
-</body>
-</html>
