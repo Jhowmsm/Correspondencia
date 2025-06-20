@@ -172,7 +172,7 @@ document.getElementById("excelFile").addEventListener("change", function(evt) {
     const data = new Uint8Array(e.target.result);
     const workbook = XLSX.read(data, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    excelData = XLSX.utils.sheet_to_json(sheet);
+    excelData = XLSX.utils.sheet_to_json(sheet, { raw: false });
     const headers = Object.keys(excelData[0]);
     renderFieldButtons(headers);
   };
