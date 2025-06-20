@@ -45,7 +45,7 @@
       background: white;
       border: 1px solid #aaa;
       width: 794px;
-      height: 1123px; /* Tamaño A4 a 96dpi (aproximadamente) */
+      height: 1123px;
       overflow: hidden;
     }
 
@@ -94,6 +94,10 @@
     #refreshPreview {
       margin-bottom: 10px;
     }
+
+    .preview-options {
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -131,7 +135,16 @@
     </div>
 
     <div class="right">
-      <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
+      <div class="preview-options">
+        <label>Registros por página:</label>
+        <select id="recordsPerPage">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+        <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
+      </div>
       <h2>Previsualización</h2>
       <iframe id="previewFrame"></iframe>
     </div>
@@ -232,7 +245,6 @@ function addTextField() {
   document.getElementById("designArea").appendChild(div);
   makeDraggable(div);
 }
-
 function selectElement(el) {
   selectedElement = el;
   document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
@@ -385,9 +397,9 @@ function renderPDF(pdf, data, offsetY = 0) {
 function generarPrevisualizacion() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const maxPerPage = 2; // Cambia a 3 si deseas 3 por página
-  const verticalSpacing = 150; // espacio entre layouts en mm
-  for (let i = 0; i < maxPerPage && i < excelData.length; i++) {
+  const cantidad = parseInt(document.getElementById("perPage").value || "1");
+  const verticalSpacing = 150;
+  for (let i = 0; i < cantidad && i < excelData.length; i++) {
     renderPDF(pdf, excelData[i], i * verticalSpacing);
   }
   const blob = pdf.output("blob");
@@ -398,13 +410,15 @@ function generarPrevisualizacion() {
 function generarPDFCompleto() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const maxPerPage = 2;
+  const cantidad = parseInt(document.getElementById("perPage").value || "1");
   const verticalSpacing = 150;
   for (let i = 0; i < excelData.length; i++) {
-    if (i % maxPerPage === 0 && i > 0) pdf.addPage();
-    const offset = (i % maxPerPage) * verticalSpacing;
+    if (i % cantidad === 0 && i > 0) pdf.addPage();
+    const offset = (i % cantidad) * verticalSpacing;
     renderPDF(pdf, excelData[i], offset);
   }
   pdf.save("resultado.pdf");
 }
 </script>
+</body>
+</html>
