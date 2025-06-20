@@ -94,6 +94,10 @@
     #refreshPreview {
       margin-bottom: 10px;
     }
+
+    .preview-options {
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -120,13 +124,18 @@
             <option value="times">Times</option>
           </select>
         </label>
-        <label>Color:
-          <input type="color" id="fontColor" value="#000000">
-        </label>
         <button id="boldBtn">B</button>
         <button id="italicBtn"><i>I</i></button>
         <button id="underlineBtn"><u>U</u></button>
         <button onclick="removeSelected()">Eliminar campo</button>
+        <label>Registros por página:
+          <select id="perPage">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          </select>
+        </label>
       </div>
 
       <div id="designArea" class="drop-zone"></div>
@@ -134,7 +143,16 @@
     </div>
 
     <div class="right">
-      <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
+      <div class="preview-options">
+        <label>Registros por página:</label>
+        <select id="recordsPerPage">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+        <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
+      </div>
       <h2>Previsualización</h2>
       <iframe id="previewFrame"></iframe>
     </div>
@@ -207,7 +225,6 @@ function addDraggableField(field) {
     div.setAttribute("data-field", field);
     div.setAttribute("data-size", "12");
     div.setAttribute("data-font", "helvetica");
-    div.setAttribute("data-color", "#000000");
     div.setAttribute("data-bold", "false");
     div.setAttribute("data-italic", "false");
     div.setAttribute("data-underline", "false");
@@ -226,7 +243,6 @@ function addTextField() {
   div.contentEditable = true;
   div.setAttribute("data-size", "12");
   div.setAttribute("data-font", "helvetica");
-  div.setAttribute("data-color", "#000000");
   div.setAttribute("data-bold", "false");
   div.setAttribute("data-italic", "false");
   div.setAttribute("data-underline", "false");
@@ -237,22 +253,18 @@ function addTextField() {
   document.getElementById("designArea").appendChild(div);
   makeDraggable(div);
 }
-
 function selectElement(el) {
   selectedElement = el;
   document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
   document.getElementById("fontFamily").value = el.getAttribute("data-font") || "helvetica";
-  document.getElementById("fontColor").value = el.getAttribute("data-color") || "#000000";
   document.getElementById("boldBtn").classList.toggle("active", el.getAttribute("data-bold") === "true");
   document.getElementById("italicBtn").classList.toggle("active", el.getAttribute("data-italic") === "true");
   document.getElementById("underlineBtn").classList.toggle("active", el.getAttribute("data-underline") === "true");
 }
 
-["fontSize", "fontFamily", "fontColor"].forEach(id => {
+["fontSize", "fontFamily"].forEach(id => {
   document.getElementById(id).addEventListener("change", function() {
-    if (selectedElement) {
-      selectedElement.setAttribute("data-" + id.replace("font", "").toLowerCase(), this.value);
-    }
+    if (selectedElement) selectedElement.setAttribute("data-" + id.replace("font", "").toLowerCase(), this.value);
   });
 });
 
@@ -272,8 +284,7 @@ function removeSelected() {
     selectedElement = null;
   }
 }
-</script>
-<script>
+
 function makeDraggable(el) {
   let offsetX, offsetY;
   el.onmousedown = function(e) {
@@ -318,7 +329,8 @@ document.getElementById("logoFile").addEventListener("change", function(evt) {
   };
   reader.readAsDataURL(file);
 });
-
+</script>
+<script>
 function renderPDF(pdf, data, offsetY = 0) {
   const elements = Array.from(document.getElementById("designArea").children);
   const barcodeCanvas = document.getElementById("barcodeCanvas");
@@ -370,7 +382,6 @@ function renderPDF(pdf, data, offsetY = 0) {
       }
       const fontSize = parseInt(el.getAttribute("data-size")) || 12;
       const font = el.getAttribute("data-font") || "helvetica";
-      const fontColor = el.getAttribute("data-color") || "#000000";
       const isBold = el.getAttribute("data-bold") === "true";
       const isItalic = el.getAttribute("data-italic") === "true";
       const isUnderline = el.getAttribute("data-underline") === "true";
@@ -381,7 +392,6 @@ function renderPDF(pdf, data, offsetY = 0) {
 
       pdf.setFont(font, style);
       pdf.setFontSize(fontSize);
-      pdf.setTextColor(fontColor);
       pdf.text(text, x, y);
       if (isUnderline) {
         const textWidth = pdf.getTextWidth(text);
@@ -395,9 +405,10 @@ function renderPDF(pdf, data, offsetY = 0) {
 function generarPrevisualizacion() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const maxPerPage = 1;
-  for (let i = 0; i < maxPerPage && i < excelData.length; i++) {
-    renderPDF(pdf, excelData[i], i * 150);
+  const cantidad = parseInt(document.getElementById("perPage").value || "1");
+  const verticalSpacing = 150;
+  for (let i = 0; i < cantidad && i < excelData.length; i++) {
+    renderPDF(pdf, excelData[i], i * verticalSpacing);
   }
   const blob = pdf.output("blob");
   const url = URL.createObjectURL(blob);
@@ -407,10 +418,11 @@ function generarPrevisualizacion() {
 function generarPDFCompleto() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const maxPerPage = 1;
+  const cantidad = parseInt(document.getElementById("perPage").value || "1");
+  const verticalSpacing = 150;
   for (let i = 0; i < excelData.length; i++) {
-    if (i % maxPerPage === 0 && i > 0) pdf.addPage();
-    const offset = (i % maxPerPage) * 150;
+    if (i % cantidad === 0 && i > 0) pdf.addPage();
+    const offset = (i % cantidad) * verticalSpacing;
     renderPDF(pdf, excelData[i], offset);
   }
   pdf.save("resultado.pdf");
@@ -418,4 +430,3 @@ function generarPDFCompleto() {
 </script>
 </body>
 </html>
-
