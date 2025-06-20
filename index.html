@@ -7,94 +7,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <style>
-    body { margin: 0; font-family: Arial, sans-serif; }
-    .container { display: flex; height: 100vh; }
-
-    .left, .right {
-      width: 50%;
-      box-sizing: border-box;
-      padding: 16px;
-      overflow-y: auto;
-    }
-
-    .left { background-color: #f8f9fa; border-right: 1px solid #ddd; }
-
-    .toolbar {
-      margin-top: 10px;
-      background: #eaeaea;
-      padding: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .toolbar label, .toolbar select, .toolbar input, .toolbar button {
-      font-size: 14px;
-    }
-
-    .toolbar button.active {
-      font-weight: bold;
-      background-color: #ccc;
-    }
-
-    #designArea {
-      margin-top: 16px;
-      position: relative;
-      background: white;
-      border: 1px solid #aaa;
-      width: 794px;
-      height: 1123px;
-      overflow: hidden;
-    }
-
-    .drop-zone {
-      position: relative;
-      background: white;
-    }
-
-    .draggable, .text-field {
-      position: absolute;
-      padding: 4px 8px;
-      cursor: move;
-      background: rgba(0, 0, 0, 0.05);
-      border-radius: 4px;
-    }
-
-    .resizable-wrapper, .barcode-wrapper {
-      position: absolute;
-      border: 1px dashed #555;
-      resize: both;
-      overflow: hidden;
-    }
-
-    .barcode-wrapper button {
-      position: absolute;
-      bottom: -18px;
-      left: 0;
-      font-size: 12px;
-      padding: 2px 4px;
-    }
-
-    .resizable-wrapper img, .barcode-wrapper img {
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-
-    .right iframe {
-      width: 100%;
-      height: 100%;
-      border: 1px solid #ccc;
-      aspect-ratio: 210 / 297;
-      background: white;
-    }
-
-    #refreshPreview {
-      margin-bottom: 10px;
-    }
-  </style>
 </head>
 <body>
   <div class="container">
@@ -127,14 +39,26 @@
         <button id="italicBtn"><i>I</i></button>
         <button id="underlineBtn"><u>U</u></button>
         <button onclick="removeSelected()">Eliminar campo</button>
+<<<<<<< HEAD
         <label>Previsualizar por página:
           <select id="previewCount">
             <option value="1">1</option>
             <option value="2">2</option>
+=======
+        <label>
+          Registros por página:
+          <select id="registrosPorPagina">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+>>>>>>> parent of 26f58b2 (Update index.html)
             <option value="3">3</option>
             <option value="4">4</option>
           </select>
         </label>
+<<<<<<< HEAD
+=======
+        <button onclick="guardarConfiguracion()">💾 Guardar diseño</button>
+>>>>>>> parent of 26f58b2 (Update index.html)
       </div>
       <label for="colorPicker">Color de letra:</label>
       <input type="color" id="colorPicker" value="#000000" />
@@ -152,6 +76,7 @@
     <button onclick="generarPDFCompleto()" style="margin-top: 20px;">📄 Generar PDF completo</button>
   </div>
 
+<<<<<<< HEAD
   <div class="right">
     <button id="refreshPreview" onclick="generarPrevisualizacion()">🔄 Recargar vista previa</button>
     <h2>Previsualización</h2>
@@ -165,32 +90,31 @@ let excelData = [];
 let selectedElement = null;
 const PX_TO_MM = 0.2646;
 const defaultMargins = { top: 20, right: 20, bottom: 20, left: 20 };
+=======
+  <canvas id="barcodeCanvas" width="300" height="100" style="display:none;"></canvas>
+>>>>>>> parent of 26f58b2 (Update index.html)
 
-document.getElementById("excelFile").addEventListener("change", function(evt) {
-  const file = evt.target.files[0];
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const data = new Uint8Array(e.target.result);
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    excelData = XLSX.utils.sheet_to_json(sheet);
-    const headers = Object.keys(excelData[0]);
-    renderFieldButtons(headers);
-  };
-  reader.readAsArrayBuffer(file);
-});
+  <script>
+    let excelData = [];
+    let selectedElement = null;
+    const PX_TO_MM = 0.2646;
+    const defaultMargins = { top: 20, right: 20, bottom: 20, left: 20 };
 
-function renderFieldButtons(headers) {
-  const container = document.getElementById("fieldSelection");
-  container.innerHTML = "<strong>Campos detectados:</strong><br>";
-  headers.forEach(header => {
-    const btn = document.createElement("button");
-    btn.textContent = header;
-    btn.onclick = () => addDraggableField(header);
-    container.appendChild(btn);
-  });
-}
+    document.getElementById("excelFile").addEventListener("change", function(evt) {
+      const file = evt.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        excelData = XLSX.utils.sheet_to_json(sheet);
+        const headers = Object.keys(excelData[0]);
+        renderFieldButtons(headers);
+      };
+      reader.readAsArrayBuffer(file);
+    });
 
+<<<<<<< HEAD
 function addDraggableField(field) {
   if (field.toLowerCase() === "codigo barras") {
     const wrapper = document.createElement("div");
@@ -321,16 +245,74 @@ function renderPDF(pdf, data, offsetY = 0) {
         width: 2,
         height: 40,
         displayValue: false
+=======
+    function renderFieldButtons(headers) {
+      const container = document.getElementById("fieldSelection");
+      container.innerHTML = "<strong>Campos detectados:</strong><br>";
+      headers.forEach(header => {
+        const btn = document.createElement("button");
+        btn.textContent = header;
+        btn.onclick = () => addDraggableField(header);
+        container.appendChild(btn);
+>>>>>>> parent of 26f58b2 (Update index.html)
       });
-      const imgData = barcodeCanvas.toDataURL("image/png");
+    }
 
-      if (rotate) {
-        pdf.saveGraphicsState();
-        pdf.translate(x, y);
-        pdf.rotate(90);
-        pdf.addImage(imgData, "PNG", 0, 0, height, width);
-        pdf.restoreGraphicsState();
+    function uploadLogo() {
+      document.getElementById("logoFile").click();
+    }
+
+    document.getElementById("logoFile").addEventListener("change", function(evt) {
+      const file = evt.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "resizable-wrapper";
+        wrapper.style.left = "10px";
+        wrapper.style.top = "10px";
+        wrapper.style.width = "150px";
+        const img = document.createElement("img");
+        img.src = e.target.result;
+        img.style.width = "100%";
+        img.style.height = "auto";
+        wrapper.appendChild(img);
+        document.getElementById("designArea").appendChild(wrapper);
+        makeDraggable(wrapper);
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    function addDraggableField(field) {
+      if (field.toLowerCase() === "codigo barras") {
+        const wrapper = document.createElement("div");
+        wrapper.className = "barcode-wrapper";
+        wrapper.setAttribute("data-field", field);
+        wrapper.setAttribute("data-rotate", "false");
+        wrapper.style.left = "10px";
+        wrapper.style.top = "10px";
+        wrapper.style.width = "150px";
+        wrapper.style.height = "60px";
+
+        const label = document.createElement("div");
+        label.textContent = "Código barras";
+        label.style.textAlign = "center";
+        label.style.fontSize = "10px";
+        wrapper.appendChild(label);
+
+        const rotateBtn = document.createElement("button");
+        rotateBtn.innerText = "↻";
+        rotateBtn.onclick = (e) => {
+          e.stopPropagation();
+          const current = wrapper.getAttribute("data-rotate") === "true";
+          wrapper.setAttribute("data-rotate", (!current).toString());
+          rotateBtn.classList.toggle("active", !current);
+        };
+        wrapper.appendChild(rotateBtn);
+
+        document.getElementById("designArea").appendChild(wrapper);
+        makeDraggable(wrapper);
       } else {
+<<<<<<< HEAD
         pdf.addImage(imgData, "PNG", x, y, width, height);
       }
 
@@ -363,11 +345,27 @@ function renderPDF(pdf, data, offsetY = 0) {
         const textWidth = pdf.getTextWidth(text);
         pdf.setLineWidth(0.5);
         pdf.line(x, y + 1, x + textWidth, y + 1);
+=======
+        const div = document.createElement("div");
+        div.className = "draggable";
+        div.setAttribute("data-field", field);
+        div.setAttribute("data-size", "12");
+        div.setAttribute("data-font", "helvetica");
+        div.setAttribute("data-bold", "false");
+        div.setAttribute("data-italic", "false");
+        div.setAttribute("data-underline", "false");
+        div.setAttribute("data-color", "#000000");
+        div.textContent = `{{${field}}}`;
+        div.style.left = "10px";
+        div.style.top = "10px";
+        div.onclick = () => selectElement(div);
+        document.getElementById("designArea").appendChild(div);
+        makeDraggable(div);
+>>>>>>> parent of 26f58b2 (Update index.html)
       }
     }
-  }
-}
 
+<<<<<<< HEAD
 function generarPrevisualizacion() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
@@ -394,5 +392,230 @@ function generarPDFCompleto() {
   pdf.save("resultado.pdf");
 }
 </script>
+=======
+    function addTextField() {
+      const div = document.createElement("div");
+      div.className = "text-field";
+      div.contentEditable = true;
+      div.setAttribute("data-size", "12");
+      div.setAttribute("data-font", "helvetica");
+      div.setAttribute("data-bold", "false");
+      div.setAttribute("data-italic", "false");
+      div.setAttribute("data-underline", "false");
+      div.setAttribute("data-color", "#000000");
+      div.innerText = "Texto libre";
+      div.style.left = "10px";
+      div.style.top = "10px";
+      div.onclick = () => selectElement(div);
+      document.getElementById("designArea").appendChild(div);
+      makeDraggable(div);
+    }
+
+    function selectElement(el) {
+      selectedElement = el;
+      document.getElementById("fontSize").value = el.getAttribute("data-size") || 12;
+      document.getElementById("fontFamily").value = el.getAttribute("data-font") || "helvetica";
+      document.getElementById("fontColor").value = el.getAttribute("data-color") || "#000000";
+      document.getElementById("boldBtn").classList.toggle("active", el.getAttribute("data-bold") === "true");
+      document.getElementById("italicBtn").classList.toggle("active", el.getAttribute("data-italic") === "true");
+      document.getElementById("underlineBtn").classList.toggle("active", el.getAttribute("data-underline") === "true");
+    }
+
+    ["fontSize", "fontFamily", "fontColor"].forEach(id => {
+      document.getElementById(id).addEventListener("change", function() {
+        if (selectedElement) {
+          const key = id === "fontColor" ? "color" : id.replace("font", "").toLowerCase();
+          selectedElement.setAttribute("data-" + key, this.value);
+        }
+      });
+    });
+
+    ["bold", "italic", "underline"].forEach(type => {
+      document.getElementById(type + "Btn").addEventListener("click", function() {
+        if (selectedElement) {
+          const current = selectedElement.getAttribute("data-" + type) === "true";
+          selectedElement.setAttribute("data-" + type, (!current).toString());
+          this.classList.toggle("active", !current);
+        }
+      });
+    });
+
+    function removeSelected() {
+      if (selectedElement) {
+        selectedElement.remove();
+        selectedElement = null;
+      }
+    }
+
+    function makeDraggable(el) {
+      let offsetX, offsetY;
+      el.onmousedown = function(e) {
+        offsetX = e.clientX - el.offsetLeft;
+        offsetY = e.clientY - el.offsetTop;
+        document.onmousemove = function(e) {
+          let x = e.clientX - offsetX;
+          let y = e.clientY - offsetY;
+          const area = document.getElementById("designArea");
+          const maxX = area.offsetWidth - el.offsetWidth;
+          const maxY = area.offsetHeight - el.offsetHeight;
+          el.style.left = Math.max(0, Math.min(x, maxX)) + "px";
+          el.style.top = Math.max(0, Math.min(y, maxY)) + "px";
+        };
+        document.onmouseup = function() {
+          document.onmousemove = null;
+          document.onmouseup = null;
+        };
+      };
+    }
+    function uploadLogo() {
+      document.getElementById("logoFile").click();
+    }
+
+    document.getElementById("logoFile").addEventListener("change", function(evt) {
+      const file = evt.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "resizable-wrapper";
+        wrapper.style.left = "10px";
+        wrapper.style.top = "10px";
+        wrapper.style.width = "150px";
+        const img = document.createElement("img");
+        img.src = e.target.result;
+        img.style.width = "100%";
+        img.style.height = "auto";
+        wrapper.appendChild(img);
+        document.getElementById("designArea").appendChild(wrapper);
+        makeDraggable(wrapper);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function renderPDF(pdf, data, offsetY = 0) {
+      const elements = Array.from(document.getElementById("designArea").children);
+      const barcodeCanvas = document.getElementById("barcodeCanvas");
+      const ctx = barcodeCanvas.getContext("2d");
+      ctx.clearRect(0, 0, barcodeCanvas.width, barcodeCanvas.height);
+
+      for (const el of elements) {
+        const x = parseInt(el.style.left) * PX_TO_MM + defaultMargins.left;
+        const y = parseInt(el.style.top) * PX_TO_MM + defaultMargins.top + offsetY;
+        const width = el.offsetWidth * PX_TO_MM;
+        const height = el.offsetHeight * PX_TO_MM;
+
+        if (el.classList.contains("resizable-wrapper")) {
+          const img = el.querySelector("img");
+          pdf.addImage(img.src, "PNG", x, y, width, height);
+
+        } else if (el.classList.contains("barcode-wrapper")) {
+          const field = el.getAttribute("data-field");
+          let value = data[field] || "";
+          value = value.toString().padStart(8, "0");
+          const rotate = el.getAttribute("data-rotate") === "true";
+          JsBarcode(barcodeCanvas, value, {
+            format: "CODE128",
+            width: 2,
+            height: 40,
+            displayValue: false
+          });
+          const imgData = barcodeCanvas.toDataURL("image/png");
+
+          if (rotate) {
+            pdf.saveGraphicsState();
+            pdf.translate(x, y);
+            pdf.rotate(90);
+            pdf.addImage(imgData, "PNG", 0, 0, height, width);
+            pdf.restoreGraphicsState();
+          } else {
+            pdf.addImage(imgData, "PNG", x, y, width, height);
+          }
+
+        } else {
+          let text = el.innerText || el.textContent;
+          const matches = text.match(/{{(.*?)}}/g);
+          if (matches) {
+            matches.forEach(m => {
+              const key = m.replace(/{{|}}/g, '').trim();
+              const replacement = data[key] || '';
+              text = text.replace(m, replacement);
+            });
+          }
+
+          const fontSize = parseInt(el.getAttribute("data-size")) || 12;
+          const font = el.getAttribute("data-font") || "helvetica";
+          const isBold = el.getAttribute("data-bold") === "true";
+          const isItalic = el.getAttribute("data-italic") === "true";
+          const isUnderline = el.getAttribute("data-underline") === "true";
+          const color = el.getAttribute("data-color") || "#000000";
+
+          let style = "normal";
+          if (isBold && isItalic) style = "bolditalic";
+          else if (isBold) style = "bold";
+          else if (isItalic) style = "italic";
+
+          pdf.setFont(font, style);
+          pdf.setFontSize(fontSize);
+          pdf.setTextColor(color);
+          pdf.text(text, x, y);
+          if (isUnderline) {
+            const textWidth = pdf.getTextWidth(text);
+            pdf.setLineWidth(0.5);
+            pdf.line(x, y + 1, x + textWidth, y + 1);
+          }
+        }
+      }
+    }
+
+    function generarPrevisualizacion() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+
+      const cantidad = parseInt(document.getElementById("porPagina").value || "1");
+      const spacing = 297 / cantidad;
+
+      for (let i = 0; i < cantidad && i < excelData.length; i++) {
+        renderPDF(pdf, excelData[i], i * spacing);
+      }
+
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      document.getElementById("previewFrame").src = url;
+    }
+
+    function generarPDFCompleto() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+
+      const cantidad = parseInt(document.getElementById("porPagina").value || "1");
+      const spacing = 297 / cantidad;
+
+      for (let i = 0; i < excelData.length; i++) {
+        if (i % cantidad === 0 && i > 0) pdf.addPage();
+        const offset = (i % cantidad) * spacing;
+        renderPDF(pdf, excelData[i], offset);
+      }
+
+      pdf.save("resultado.pdf");
+    }
+  </script>
+
+  <!-- Configurable número por página -->
+  <script>
+    const previewContainer = document.querySelector(".right");
+    const selector = document.createElement("div");
+    selector.innerHTML = `
+      <label style="display: block; margin-top: 10px;">Registros por página:
+        <select id="porPagina">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </label>
+    `;
+    previewContainer.insertBefore(selector, previewContainer.children[1]);
+  </script>
+
+>>>>>>> parent of 26f58b2 (Update index.html)
 </body>
 </html>
