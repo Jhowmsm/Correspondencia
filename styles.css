@@ -2,11 +2,14 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .container {
   display: flex;
   height: 100vh;
+  width: 100vw;
 }
 
 /* Columnas izquierda y derecha */
@@ -20,6 +23,12 @@ body {
 .left {
   background-color: #f8f9fa;
   border-right: 1px solid #ddd;
+}
+
+.right {
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Área de herramientas */
@@ -45,38 +54,29 @@ body {
   background-color: #ccc;
 }
 
-/* Área de diseño */
+/* Área de diseño con tamaño A4 */
 #designArea {
   margin-top: 16px;
   position: relative;
   background: white;
   border: 1px solid #aaa;
   width: 794px;
-  height: 1123px; /* Tamaño A4 a 96dpi */
+  height: 1123px;
   overflow: hidden;
 }
 
-/* Zona de drop (área blanca) */
-.drop-zone {
-  position: relative;
-  background: white;
-}
-
 /* Elementos arrastrables */
-.draggable,
-.text-field {
+.draggable, .text-field {
   position: absolute;
   padding: 4px 8px;
   cursor: move;
   background: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
-  user-select: none;
   white-space: nowrap;
+  user-select: none;
 }
 
-/* Imágenes y código de barras */
-.resizable-wrapper,
-.barcode-wrapper {
+.resizable-wrapper, .barcode-wrapper {
   position: absolute;
   border: 1px dashed #555;
   resize: both;
@@ -90,7 +90,6 @@ body {
   pointer-events: none;
 }
 
-/* Botón de rotar código de barras */
 .barcode-wrapper button {
   position: absolute;
   bottom: -18px;
@@ -102,21 +101,22 @@ body {
   cursor: pointer;
 }
 
-/* Vista previa en iframe */
+/* Iframe de previsualización bien contenido */
 .right iframe {
   width: 100%;
-  height: 100%;
+  flex: 1;
   border: 1px solid #ccc;
-  aspect-ratio: 210 / 297;
   background: white;
+  aspect-ratio: 210 / 297;
+  max-height: calc(100vh - 130px);
 }
 
-/* Botón de recargar vista previa */
+/* Botón recargar vista previa */
 #refreshPreview {
   margin-bottom: 10px;
+  align-self: flex-end;
 }
 
-/* Etiqueta de campos detectados */
 #fieldSelection button {
   margin: 4px;
   padding: 4px 8px;
@@ -124,7 +124,6 @@ body {
   cursor: pointer;
 }
 
-/* Selector de color */
 input[type="color"] {
   padding: 0;
   border: none;
